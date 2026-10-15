@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.steamdb"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 7
+        versionName = "1.0.6"
     }
 
     compileOptions {
@@ -42,3 +42,4 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
+
