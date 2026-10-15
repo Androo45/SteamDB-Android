@@ -1,4 +1,4 @@
-﻿package com.example.SteamBD
+package com.example.steamdb
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -55,8 +55,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -76,9 +77,6 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.sin
 
-// ============================================================================
-// PALETA DE COLORES OFICIAL DE SteamBD
-// ============================================================================
 val SdbBg = Color(0xFF161920)
 val SdbHeader = Color(0xFF1D212A)
 val SdbPanel = Color(0xFF212630)
@@ -93,7 +91,7 @@ val SdbOrange = Color(0xFFFFB300)
 val SdbTextMain = Color(0xFFE2E6ED)
 val SdbTextMuted = Color(0xFF8A94A6)
 
-private val SteamBDDarkColors = darkColorScheme(
+private val SteamBdDarkColors = darkColorScheme(
     primary = SdbBlue,
     secondary = SdbBrightGreen,
     tertiary = SdbSaleBadgeText,
@@ -107,8 +105,7 @@ private val SteamBDDarkColors = darkColorScheme(
 )
 
 // ============================================================================
-// COMPONENTE INTELIGENTE DE MINIATURAS CON 4 SERVIDORES CDN DE RESPALDO
-// Soluciona el problema de imágenes con hash nuevo en Steam
+// MINIATURAS ULTRA-ESTABLES CON FALLBACK MULTI-CDN SIN SUBCOMPOSICIÓN
 // ============================================================================
 @Composable
 fun SteamSmartThumb(
@@ -118,7 +115,7 @@ fun SteamSmartThumb(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop
 ) {
-    val candidates = remember(appId, primaryUrl) {
+    val urls = remember(appId, primaryUrl) {
         buildList {
             if (primaryUrl.isNotBlank() && primaryUrl.startsWith("http")) {
                 add(primaryUrl.replace("http://", "https://"))
@@ -132,10 +129,10 @@ fun SteamSmartThumb(
         }.distinct()
     }
 
-    var currentIdx by remember(appId, primaryUrl) { mutableIntStateOf(0) }
-    val activeUrl = candidates.getOrNull(currentIdx)
+    var urlIndex by remember(appId, primaryUrl) { mutableIntStateOf(0) }
+    var allFailed by remember(appId, primaryUrl) { mutableStateOf(urls.isEmpty()) }
 
-    if (activeUrl == null) {
+    if (allFailed || urlIndex >= urls.size) {
         Box(
             modifier = modifier
                 .background(SdbPanel)
@@ -143,7 +140,7 @@ fun SteamSmartThumb(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (appId > 0) "ID $appId" else "STEAM",
+                text = if (appId > 0) "#$appId" else "BD",
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
@@ -151,32 +148,19 @@ fun SteamSmartThumb(
             )
         }
     } else {
-        SubcomposeAsyncImage(
+        AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(activeUrl)
+                .data(urls[urlIndex])
                 .crossfade(true)
                 .build(),
             contentDescription = contentDescription,
             contentScale = contentScale,
             modifier = modifier.background(SdbPanel),
-            loading = {
-                Box(modifier = Modifier.fillMaxSize().background(SdbPanel), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = SdbBlue.copy(alpha = 0.5f), strokeWidth = 1.5.dp, modifier = Modifier.size(14.dp))
-                }
-            },
-            error = {
-                LaunchedEffect(currentIdx) {
-                    if (currentIdx < candidates.lastIndex) {
-                        currentIdx += 1
-                    }
-                }
-                Box(modifier = Modifier.fillMaxSize().background(SdbPanel), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (appId > 0) "#$appId" else "BD",
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = SdbTextMuted
-                    )
+            onError = {
+                if (urlIndex + 1 < urls.size) {
+                    urlIndex += 1
+                } else {
+                    allFailed = true
                 }
             }
         )
@@ -269,58 +253,47 @@ data class SdbSaleEvent(
     val description: String
 )
 
-// ============================================================================
-// CALENDARIO OFICIAL DE REBAJAS DE STEAM CON FECHAS EXACTAS
-// ============================================================================
 object SteamSalesSchedule {
     val officialEvents = listOf(
         SdbSaleEvent(
             name = "Steam Next Fest: October Edition",
             category = "FESTIVAL DE DEMOS",
-            startDateMillis = 1760374800000L, // 13 Oct 2026 - 20 Oct 2026
+            startDateMillis = 1760374800000L,
             endDateMillis = 1760979600000L,
             dateRangeText = "13 Oct — 20 Oct 2026",
-            description = "Cientos de demos jugables gratuitas y emisiones en vivo de próximos estrenos en Steam."
+            description = "Cientos de demos jugables gratuitas y emisiones en directo de próximos estrenos en Steam."
         ),
         SdbSaleEvent(
             name = "Steam Scream Fest (Halloween Sale)",
             category = "FESTIVAL TEMÁTICO",
-            startDateMillis = 1761584400000L, // 27 Oct 2026 - 3 Nov 2026
+            startDateMillis = 1761584400000L,
             endDateMillis = 1762189200000L,
             dateRangeText = "27 Oct — 03 Nov 2026",
-            description = "Rebajas especiales en juegos de terror, supervivencia, zombies y eventos de Halloween."
+            description = "Rebajas especiales en juegos de terror, supervivencia oscura y eventos de Halloween."
         ),
         SdbSaleEvent(
             name = "Steam Cooking & Survival Fest",
             category = "FESTIVAL TEMÁTICO",
-            startDateMillis = 1762880400000L, // 11 Nov 2026 - 18 Nov 2026
+            startDateMillis = 1762880400000L,
             endDateMillis = 1763485200000L,
             dateRangeText = "11 Nov — 18 Nov 2026",
-            description = "Descuentos en simuladores de gestión, cocina, supervivencia y construcción."
+            description = "Descuentos especiales en simuladores, supervivencia y gestión."
         ),
         SdbSaleEvent(
             name = "Steam Autumn Sale (Gran Rebaja de Otoño)",
             category = "MAJOR SEASONAL SALE",
-            startDateMillis = 1764176400000L, // 26 Nov 2026 - 3 Dic 2026
+            startDateMillis = 1764176400000L,
             endDateMillis = 1764781200000L,
             dateRangeText = "26 Nov — 03 Dic 2026",
-            description = "Una de las 4 grandes rebajas anuales de todo el catálogo de Steam + Nominaciones a los Steam Awards."
+            description = "Una de las 4 grandes rebajas estacionales de Steam + Nominaciones a los Steam Awards."
         ),
         SdbSaleEvent(
             name = "Steam Winter Sale (Gran Rebaja de Invierno)",
             category = "MAJOR SEASONAL SALE",
-            startDateMillis = 1766077200000L, // 18 Dic 2026 - 4 Ene 2027
+            startDateMillis = 1766077200000L,
             endDateMillis = 1767546000000L,
             dateRangeText = "18 Dic 2026 — 04 Ene 2027",
-            description = "El mayor evento de ofertas del año en Steam, votaciones de los Steam Awards y cromos de invierno."
-        ),
-        SdbSaleEvent(
-            name = "Steam Next Fest: February Edition",
-            category = "FESTIVAL DE DEMOS",
-            startDateMillis = 1770656400000L,
-            endDateMillis = 1771261200000L,
-            dateRangeText = "09 Feb — 16 Feb 2027",
-            description = "Festival de demos jugables de invierno/primavera."
+            description = "El mayor evento de ofertas del año en todo el catálogo de Steam."
         ),
         SdbSaleEvent(
             name = "Steam Spring Sale (Gran Rebaja de Primavera)",
@@ -342,28 +315,30 @@ object SteamSalesSchedule {
 }
 
 // ============================================================================
-// CLIENTE DIRECTO A LAS APIS DE VALVE (CON TOP 100 REAL Y URLS CON HASH)
+// CLIENTE DIRECTO A LAS APIS DE VALVE (CON PROTECCIÓN TRY-CATCH TOTAL)
 // ============================================================================
 object ValveSteamClient {
 
-    private val httpSemaphore = Semaphore(12)
+    private val httpSemaphore = Semaphore(10)
 
     private fun getJson(urlStr: String): String {
-        val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 9000
-            readTimeout = 9000
-            setRequestProperty("User-Agent", "SteamBD-Native-Android/1.0.4")
-            setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
-        }
         return try {
-            if (conn.responseCode in 200..299) {
-                conn.inputStream.bufferedReader().use { it.readText() }
-            } else ""
-        } catch (_: Exception) {
+            val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 8000
+                readTimeout = 8000
+                setRequestProperty("User-Agent", "SteamBD-Android/1.0.5")
+                setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
+            }
+            try {
+                if (conn.responseCode in 200..299) {
+                    conn.inputStream.bufferedReader().use { it.readText() }
+                } else ""
+            } finally {
+                conn.disconnect()
+            }
+        } catch (_: Throwable) {
             ""
-        } finally {
-            conn.disconnect()
         }
     }
 
@@ -379,17 +354,6 @@ object ValveSteamClient {
             .trim()
     }
 
-    suspend fun fetchLivePlayers(appId: Int): Int = withContext(Dispatchers.IO) {
-        val raw = getJson("https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=$appId")
-        if (raw.isBlank()) return@withContext 0
-        try {
-            JSONObject(raw).optJSONObject("response")?.optInt("player_count", 0) ?: 0
-        } catch (_: Exception) {
-            0
-        }
-    }
-
-    // Extrae la URL real con hash de la respuesta de Steam para que ninguna miniatura falle
     private fun extractBestImageUrl(item: JSONObject, appId: Int): String {
         val keys = listOf("large_capsule_image", "header_image", "small_capsule_image", "tiny_image", "capsule_image")
         for (k in keys) {
@@ -399,53 +363,70 @@ object ValveSteamClient {
         return "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$appId/header.jpg"
     }
 
-    suspend fun fetchLiveSuggestions(query: String): List<SdbGameSummary> = withContext(Dispatchers.IO) {
-        val clean = query.trim()
-        if (clean.isEmpty()) return@withContext emptyList()
-        val encoded = URLEncoder.encode(clean, "UTF-8")
-        val raw = getJson("https://store.steampowered.com/api/storesearch/?term=$encoded&l=spanish&cc=es")
-        if (raw.isBlank()) return@withContext emptyList()
-
-        val items = JSONObject(raw).optJSONArray("items") ?: return@withContext emptyList()
-        val out = mutableListOf<SdbGameSummary>()
-
-        for (i in 0 until minOf(items.length(), 14)) {
-            val obj = items.optJSONObject(i) ?: continue
-            val id = obj.optInt("id", 0)
-            if (id <= 0) continue
-
-            val priceObj = obj.optJSONObject("price")
-            val initial = priceObj?.optInt("initial", 0) ?: 0
-            val finalP = priceObj?.optInt("final", 0) ?: 0
-            val disc = if (initial > 0 && finalP < initial) ((initial - finalP) * 100) / initial else 0
-            val thumb = extractBestImageUrl(obj, id)
-
-            out.add(
-                SdbGameSummary(
-                    appId = id,
-                    name = obj.optString("name", "App $id"),
-                    capsuleUrl = thumb,
-                    originalCents = initial,
-                    finalCents = finalP,
-                    discountPct = disc
-                )
-            )
+    suspend fun fetchLivePlayers(appId: Int): Int = withContext(Dispatchers.IO) {
+        val raw = getJson("https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=$appId")
+        if (raw.isBlank()) return@withContext 0
+        try {
+            JSONObject(raw).optJSONObject("response")?.optInt("player_count", 0) ?: 0
+        } catch (_: Throwable) {
+            0
         }
-        out
+    }
+
+    suspend fun fetchLiveSuggestions(query: String): List<SdbGameSummary> = withContext(Dispatchers.IO) {
+        try {
+            val clean = query.trim()
+            if (clean.isEmpty()) return@withContext emptyList()
+            val encoded = URLEncoder.encode(clean, "UTF-8")
+            val raw = getJson("https://store.steampowered.com/api/storesearch/?term=$encoded&l=spanish&cc=es")
+            if (raw.isBlank()) return@withContext emptyList()
+
+            val items = JSONObject(raw).optJSONArray("items") ?: return@withContext emptyList()
+            val out = mutableListOf<SdbGameSummary>()
+
+            for (i in 0 until minOf(items.length(), 14)) {
+                val obj = items.optJSONObject(i) ?: continue
+                val id = obj.optInt("id", 0)
+                if (id <= 0) continue
+
+                val priceObj = obj.optJSONObject("price")
+                val initial = priceObj?.optInt("initial", 0) ?: 0
+                val finalP = priceObj?.optInt("final", 0) ?: 0
+                val disc = if (initial > 0 && finalP < initial) ((initial - finalP) * 100) / initial else 0
+
+                out.add(
+                    SdbGameSummary(
+                        appId = id,
+                        name = obj.optString("name", "App $id"),
+                        capsuleUrl = extractBestImageUrl(obj, id),
+                        originalCents = initial,
+                        finalCents = finalP,
+                        discountPct = disc
+                    )
+                )
+            }
+            out.distinctBy { it.appId }
+        } catch (_: Throwable) {
+            emptyList()
+        }
     }
 
     suspend fun fetchStoreCategories(): Map<String, List<SdbGameSummary>> = withContext(Dispatchers.IO) {
-        val raw = getJson("https://store.steampowered.com/api/featuredcategories?cc=es&l=spanish")
-        if (raw.isBlank()) return@withContext emptyMap()
+        try {
+            val raw = getJson("https://store.steampowered.com/api/featuredcategories?cc=es&l=spanish")
+            if (raw.isBlank()) return@withContext emptyMap()
 
-        val root = JSONObject(raw)
-        val result = mutableMapOf<String, List<SdbGameSummary>>()
+            val root = JSONObject(raw)
+            val result = mutableMapOf<String, List<SdbGameSummary>>()
 
-        for (key in listOf("top_sellers", "specials", "coming_soon", "new_releases")) {
-            val catObj = root.optJSONObject(key)
-            result[key] = parseCategoryArray(catObj).distinctBy { it.appId }
+            for (key in listOf("top_sellers", "specials", "coming_soon", "new_releases")) {
+                val catObj = root.optJSONObject(key)
+                result[key] = parseCategoryArray(catObj).distinctBy { it.appId }
+            }
+            result
+        } catch (_: Throwable) {
+            emptyMap()
         }
-        result
     }
 
     private fun parseCategoryArray(catObj: JSONObject?): List<SdbGameSummary> {
@@ -472,10 +453,9 @@ object ValveSteamClient {
                 )
             )
         }
-        return out
+        return out.distinctBy { it.appId }
     }
 
-    // Diccionario de nombres conocidos para que el Top 100 cargue al instante
     private val knownTop100Names = mapOf(
         730 to "Counter-Strike 2", 570 to "Dota 2", 578080 to "PUBG: BATTLEGROUNDS",
         1172470 to "Apex Legends", 271590 to "Grand Theft Auto V", 252490 to "Rust",
@@ -503,70 +483,71 @@ object ValveSteamClient {
         2767030 to "Marvel Rivals", 2694490 to "Path of Exile 2", 2507950 to "Delta Force"
     )
 
-    // Conecta con ISteamChartsService/GetMostPlayedGames para obtener el TOP 100 REAL de Steam
     suspend fun fetchTop100MostPlayedGames(knownCatalog: List<SdbGameSummary>): List<SdbGameSummary> =
         withContext(Dispatchers.IO) {
-            val catalogMap = knownCatalog.associateBy { it.appId }.toMutableMap()
-            val raw = getJson("https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/")
+            try {
+                val catalogMap = knownCatalog.associateBy { it.appId }
+                val raw = getJson("https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/")
 
-            if (raw.isNotBlank()) {
-                val ranks = JSONObject(raw).optJSONObject("response")?.optJSONArray("ranks")
-                if (ranks != null && ranks.length() > 0) {
-                    val parsedRanks = mutableListOf<Triple<Int, Int, Int>>() // appId, rank, peakInGame
-                    for (i in 0 until minOf(ranks.length(), 100)) {
-                        val rObj = ranks.optJSONObject(i) ?: continue
-                        val id = rObj.optInt("appid", 0)
-                        val peak = rObj.optInt("peak_in_game", 0)
-                        if (id > 0) parsedRanks.add(Triple(id, i + 1, peak))
-                    }
+                if (raw.isNotBlank()) {
+                    val ranks = JSONObject(raw).optJSONObject("response")?.optJSONArray("ranks")
+                    if (ranks != null && ranks.length() > 0) {
+                        val parsedRanks = mutableListOf<Triple<Int, Int, Int>>()
+                        val seenIds = HashSet<Int>()
+                        for (i in 0 until minOf(ranks.length(), 100)) {
+                            val rObj = ranks.optJSONObject(i) ?: continue
+                            val id = rObj.optInt("appid", 0)
+                            val peak = rObj.optInt("peak_in_game", 0)
+                            if (id > 0 && seenIds.add(id)) {
+                                parsedRanks.add(Triple(id, i + 1, peak))
+                            }
+                        }
 
-                    // Enriquecemos en paralelo: los primeros 35 con jugadores concurrentes exactos al segundo y nombres reales
-                    return@withContext parsedRanks.mapIndexed { idx, (id, _, peak) ->
-                        async {
-                            val cached = catalogMap[id]
-                            var title = cached?.name ?: knownTop100Names[id]
-                            var thumb = cached?.capsuleUrl
-                                ?: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$id/header.jpg"
+                        return@withContext parsedRanks.mapIndexed { idx, (id, _, peak) ->
+                            async {
+                                val cached = catalogMap[id]
+                                var title = cached?.name ?: knownTop100Names[id]
+                                var thumb = cached?.capsuleUrl
+                                    ?: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$id/header.jpg"
 
-                            // Si no conocemos el título de este AppID del Top 100, lo pedimos a Steam
-                            if (title == null) {
-                                httpSemaphore.withPermit {
-                                    val detailJson = getJson("https://store.steampowered.com/api/appdetails?appids=$id&cc=es&l=spanish&filters=basic")
-                                    if (detailJson.isNotBlank()) {
-                                        val d = JSONObject(detailJson).optJSONObject(id.toString())?.optJSONObject("data")
-                                        if (d != null) {
-                                            title = d.optString("name", "Steam App #$id")
-                                            val hImg = d.optString("header_image", "")
-                                            if (hImg.startsWith("http")) thumb = hImg.replace("http://", "https://")
+                                if (title == null && idx < 45) {
+                                    httpSemaphore.withPermit {
+                                        val detailJson = getJson("https://store.steampowered.com/api/appdetails?appids=$id&cc=es&l=spanish&filters=basic")
+                                        if (detailJson.isNotBlank()) {
+                                            val d = JSONObject(detailJson).optJSONObject(id.toString())?.optJSONObject("data")
+                                            if (d != null) {
+                                                title = d.optString("name", "Steam App #$id")
+                                                val hImg = d.optString("header_image", "")
+                                                if (hImg.startsWith("http")) thumb = hImg.replace("http://", "https://")
+                                            }
                                         }
                                     }
                                 }
+
+                                val liveNow = if (idx < 25) {
+                                    httpSemaphore.withPermit { fetchLivePlayers(id) }
+                                } else 0
+
+                                val effectiveCurrent = if (liveNow > 0) liveNow else (peak * 0.78).toInt().coerceAtLeast(120)
+                                val effectivePeak = maxOf(peak, effectiveCurrent)
+
+                                SdbGameSummary(
+                                    appId = id,
+                                    name = title ?: "Steam Game (AppID $id)",
+                                    capsuleUrl = thumb,
+                                    originalCents = cached?.originalCents ?: 0,
+                                    finalCents = cached?.finalCents ?: 0,
+                                    discountPct = cached?.discountPct ?: 0,
+                                    currentPlayers = effectiveCurrent,
+                                    peak24hEstimate = effectivePeak
+                                )
                             }
-
-                            val liveNow = if (idx < 30) {
-                                httpSemaphore.withPermit { fetchLivePlayers(id) }
-                            } else 0
-
-                            val effectiveCurrent = if (liveNow > 0) liveNow else (peak * 0.78).toInt().coerceAtLeast(100)
-                            val effectivePeak = maxOf(peak, effectiveCurrent)
-
-                            SdbGameSummary(
-                                appId = id,
-                                name = title ?: "Steam Game #$id",
-                                capsuleUrl = thumb,
-                                originalCents = cached?.originalCents ?: 0,
-                                finalCents = cached?.finalCents ?: 0,
-                                discountPct = cached?.discountPct ?: 0,
-                                currentPlayers = effectiveCurrent,
-                                peak24hEstimate = effectivePeak
-                            )
-                        }
-                    }.awaitAll().sortedByDescending { it.currentPlayers }
+                        }.awaitAll().distinctBy { it.appId }.sortedByDescending { it.currentPlayers }
+                    }
                 }
-            }
+            } catch (_: Throwable) {}
 
-            // Fallback de seguridad si ISteamChartsService no responde
-            knownTop100Names.entries.take(50).map { (id, name) ->
+            knownTop100Names.entries.take(40).map { (id, name) ->
                 async {
                     httpSemaphore.withPermit {
                         val live = fetchLivePlayers(id)
@@ -582,140 +563,146 @@ object ValveSteamClient {
                         )
                     }
                 }
-            }.awaitAll().filter { it.currentPlayers > 0 }.sortedByDescending { it.currentPlayers }
+            }.awaitAll().filter { it.currentPlayers > 0 }.distinctBy { it.appId }.sortedByDescending { it.currentPlayers }
         }
 
     suspend fun fetchUpcomingCalendar(seedList: List<SdbGameSummary>): List<SdbGameSummary> =
         withContext(Dispatchers.IO) {
-            seedList.take(24).map { item ->
+            seedList.distinctBy { it.appId }.take(22).map { item ->
                 async {
                     httpSemaphore.withPermit {
                         val raw = getJson("https://store.steampowered.com/api/appdetails?appids=${item.appId}&cc=es&l=spanish&filters=basic,release_date")
                         var releaseStr = "Próximamente"
                         var headerImg = item.capsuleUrl
                         if (raw.isNotBlank()) {
-                            val data = JSONObject(raw).optJSONObject(item.appId.toString())?.optJSONObject("data")
-                            if (data != null) {
-                                releaseStr = data.optJSONObject("release_date")?.optString("date", "Próximamente") ?: "Próximamente"
-                                val apiHeader = data.optString("header_image", "")
-                                if (apiHeader.startsWith("http")) {
-                                    headerImg = apiHeader.replace("http://", "https://")
+                            try {
+                                val data = JSONObject(raw).optJSONObject(item.appId.toString())?.optJSONObject("data")
+                                if (data != null) {
+                                    releaseStr = data.optJSONObject("release_date")?.optString("date", "Próximamente") ?: "Próximamente"
+                                    val apiHeader = data.optString("header_image", "")
+                                    if (apiHeader.startsWith("http")) {
+                                        headerImg = apiHeader.replace("http://", "https://")
+                                    }
                                 }
-                            }
+                            } catch (_: Throwable) {}
                         }
                         item.copy(releaseDateText = releaseStr, capsuleUrl = headerImg)
                     }
                 }
-            }.awaitAll()
+            }.awaitAll().distinctBy { it.appId }
         }
 
     suspend fun fetchFullAppInspector(appId: Int): SdbFullAppData? = withContext(Dispatchers.IO) {
-        val detailsDeferred = async { getJson("https://store.steampowered.com/api/appdetails?appids=$appId&cc=es&l=spanish") }
-        val playersDeferred = async { fetchLivePlayers(appId) }
-        val reviewsDeferred = async { getJson("https://store.steampowered.com/appreviews/$appId?json=1&language=all&purchase_type=all") }
+        try {
+            val detailsDeferred = async { getJson("https://store.steampowered.com/api/appdetails?appids=$appId&cc=es&l=spanish") }
+            val playersDeferred = async { fetchLivePlayers(appId) }
+            val reviewsDeferred = async { getJson("https://store.steampowered.com/appreviews/$appId?json=1&language=all&purchase_type=all") }
 
-        val rawDetails = detailsDeferred.await()
-        if (rawDetails.isBlank()) return@withContext null
+            val rawDetails = detailsDeferred.await()
+            if (rawDetails.isBlank()) return@withContext null
 
-        val wrapper = JSONObject(rawDetails).optJSONObject(appId.toString()) ?: return@withContext null
-        if (!wrapper.optBoolean("success", false)) return@withContext null
-        val data = wrapper.optJSONObject("data") ?: return@withContext null
+            val wrapper = JSONObject(rawDetails).optJSONObject(appId.toString()) ?: return@withContext null
+            if (!wrapper.optBoolean("success", false)) return@withContext null
+            val data = wrapper.optJSONObject("data") ?: return@withContext null
 
-        val livePlayers = playersDeferred.await()
-        val rawReviews = reviewsDeferred.await()
+            val livePlayers = playersDeferred.await()
+            val rawReviews = reviewsDeferred.await()
 
-        var posRev = 0
-        var negRev = 0
-        var revDesc = "Valoraciones verificadas"
-        if (rawReviews.isNotBlank()) {
-            val qSum = JSONObject(rawReviews).optJSONObject("query_summary")
-            if (qSum != null) {
-                posRev = qSum.optInt("total_positive", 0)
-                negRev = qSum.optInt("total_negative", 0)
-                revDesc = qSum.optString("review_score_desc", "Valoraciones")
+            var posRev = 0
+            var negRev = 0
+            var revDesc = "Valoraciones verificadas"
+            if (rawReviews.isNotBlank()) {
+                val qSum = JSONObject(rawReviews).optJSONObject("query_summary")
+                if (qSum != null) {
+                    posRev = qSum.optInt("total_positive", 0)
+                    negRev = qSum.optInt("total_negative", 0)
+                    revDesc = qSum.optString("review_score_desc", "Valoraciones")
+                }
             }
-        }
 
-        val priceObj = data.optJSONObject("price_overview")
-        val isFree = data.optBoolean("is_free", false)
-        val finalCents = priceObj?.optInt("final", 0) ?: 0
-        val disc = priceObj?.optInt("discount_percent", 0) ?: 0
+            val priceObj = data.optJSONObject("price_overview")
+            val isFree = data.optBoolean("is_free", false)
+            val finalCents = priceObj?.optInt("final", 0) ?: 0
+            val disc = priceObj?.optInt("discount_percent", 0) ?: 0
 
-        val devs = mutableListOf<String>()
-        data.optJSONArray("developers")?.let { for (i in 0 until it.length()) devs.add(it.optString(i)) }
+            val devs = mutableListOf<String>()
+            data.optJSONArray("developers")?.let { for (i in 0 until it.length()) devs.add(it.optString(i)) }
 
-        val pubs = mutableListOf<String>()
-        data.optJSONArray("publishers")?.let { for (i in 0 until it.length()) pubs.add(it.optString(i)) }
+            val pubs = mutableListOf<String>()
+            data.optJSONArray("publishers")?.let { for (i in 0 until it.length()) pubs.add(it.optString(i)) }
 
-        val packages = mutableListOf<Int>()
-        data.optJSONArray("packages")?.let { for (i in 0 until it.length()) packages.add(it.optInt(i)) }
+            val packages = mutableListOf<Int>()
+            data.optJSONArray("packages")?.let { for (i in 0 until it.length()) packages.add(it.optInt(i)) }
 
-        val dlcs = mutableListOf<Int>()
-        data.optJSONArray("dlc")?.let { for (i in 0 until minOf(it.length(), 40)) dlcs.add(it.optInt(i)) }
+            val dlcs = mutableListOf<Int>()
+            data.optJSONArray("dlc")?.let { for (i in 0 until minOf(it.length(), 40)) dlcs.add(it.optInt(i)) }
 
-        val genres = mutableListOf<String>()
-        data.optJSONArray("genres")?.let {
-            for (i in 0 until it.length()) it.optJSONObject(i)?.optString("description")?.let { g -> genres.add(g) }
-        }
-
-        val cats = mutableListOf<String>()
-        data.optJSONArray("categories")?.let {
-            for (i in 0 until it.length()) it.optJSONObject(i)?.optString("description")?.let { c -> cats.add(c) }
-        }
-
-        val shots = mutableListOf<String>()
-        data.optJSONArray("screenshots")?.let {
-            for (i in 0 until minOf(it.length(), 12)) {
-                it.optJSONObject(i)?.optString("path_full")?.let { s -> shots.add(s.replace("http://", "https://")) }
+            val genres = mutableListOf<String>()
+            data.optJSONArray("genres")?.let {
+                for (i in 0 until it.length()) it.optJSONObject(i)?.optString("description")?.let { g -> genres.add(g) }
             }
+
+            val cats = mutableListOf<String>()
+            data.optJSONArray("categories")?.let {
+                for (i in 0 until it.length()) it.optJSONObject(i)?.optString("description")?.let { c -> cats.add(c) }
+            }
+
+            val shots = mutableListOf<String>()
+            data.optJSONArray("screenshots")?.let {
+                for (i in 0 until minOf(it.length(), 12)) {
+                    it.optJSONObject(i)?.optString("path_full")?.let { s -> shots.add(s.replace("http://", "https://")) }
+                }
+            }
+
+            val pcReq = data.optJSONObject("pc_requirements")?.optString("minimum", "")?.let { stripHtml(it) } ?: "No especificado"
+            val langs = stripHtml(data.optString("supported_languages", "Español, Inglés"))
+            val relObj = data.optJSONObject("release_date")
+            val plat = data.optJSONObject("platforms")
+
+            val peak24 = (livePlayers * 1.24).toInt()
+            val allTimeEst = maxOf((livePlayers * 3.4).toInt(), (posRev + negRev) / 3)
+            val rawHeader = data.optString("header_image", "").replace("http://", "https://")
+
+            SdbFullAppData(
+                appId = appId,
+                name = data.optString("name", "App $appId"),
+                appType = data.optString("type", "game").uppercase(),
+                shortDesc = stripHtml(data.optString("short_description", "Sin descripción.")),
+                supportedLanguages = langs,
+                headerImage = rawHeader.ifBlank { "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$appId/header.jpg" },
+                developers = devs.ifEmpty { listOf("N/A") },
+                publishers = pubs.ifEmpty { listOf("N/A") },
+                releaseDate = relObj?.optString("date", "N/A") ?: "N/A",
+                isFree = isFree,
+                initialFormatted = priceObj?.optString("initial_formatted", "").orEmpty(),
+                finalFormatted = when {
+                    isFree -> "Gratis (Free to Play)"
+                    priceObj != null -> priceObj.optString("final_formatted", "N/A")
+                    else -> "N/A"
+                },
+                finalCents = finalCents,
+                discountPct = disc,
+                metacritic = data.optJSONObject("metacritic")?.optInt("score"),
+                positiveReviews = posRev,
+                negativeReviews = negRev,
+                reviewScoreDesc = revDesc,
+                achievementsCount = data.optJSONObject("achievements")?.optInt("total") ?: 0,
+                packageIds = packages.distinct(),
+                dlcAppIds = dlcs.distinct(),
+                genres = genres,
+                categories = cats,
+                screenshots = shots.distinct(),
+                pcRequirementsMin = pcReq,
+                windows = plat?.optBoolean("windows", true) ?: true,
+                mac = plat?.optBoolean("mac", false) ?: false,
+                linux = plat?.optBoolean("linux", false) ?: false,
+                currentPlayers = livePlayers,
+                peakTodayEstimate = peak24,
+                allTimePeakEstimate = allTimeEst
+            )
+        } catch (_: Throwable) {
+            null
         }
-
-        val pcReq = data.optJSONObject("pc_requirements")?.optString("minimum", "")?.let { stripHtml(it) } ?: "No especificado"
-        val langs = stripHtml(data.optString("supported_languages", "Español, Inglés"))
-        val relObj = data.optJSONObject("release_date")
-        val plat = data.optJSONObject("platforms")
-
-        val peak24 = (livePlayers * 1.24).toInt()
-        val allTimeEst = maxOf((livePlayers * 3.4).toInt(), (posRev + negRev) / 3)
-        val rawHeader = data.optString("header_image", "").replace("http://", "https://")
-
-        SdbFullAppData(
-            appId = appId,
-            name = data.optString("name", "App $appId"),
-            appType = data.optString("type", "game").uppercase(),
-            shortDesc = stripHtml(data.optString("short_description", "Sin descripción.")),
-            supportedLanguages = langs,
-            headerImage = rawHeader.ifBlank { "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$appId/header.jpg" },
-            developers = devs.ifEmpty { listOf("N/A") },
-            publishers = pubs.ifEmpty { listOf("N/A") },
-            releaseDate = relObj?.optString("date", "N/A") ?: "N/A",
-            isFree = isFree,
-            initialFormatted = priceObj?.optString("initial_formatted", "").orEmpty(),
-            finalFormatted = when {
-                isFree -> "Gratis (Free to Play)"
-                priceObj != null -> priceObj.optString("final_formatted", "N/A")
-                else -> "N/A"
-            },
-            finalCents = finalCents,
-            discountPct = disc,
-            metacritic = data.optJSONObject("metacritic")?.optInt("score"),
-            positiveReviews = posRev,
-            negativeReviews = negRev,
-            reviewScoreDesc = revDesc,
-            achievementsCount = data.optJSONObject("achievements")?.optInt("total") ?: 0,
-            packageIds = packages,
-            dlcAppIds = dlcs,
-            genres = genres,
-            categories = cats,
-            screenshots = shots,
-            pcRequirementsMin = pcReq,
-            windows = plat?.optBoolean("windows", true) ?: true,
-            mac = plat?.optBoolean("mac", false) ?: false,
-            linux = plat?.optBoolean("linux", false) ?: false,
-            currentPlayers = livePlayers,
-            peakTodayEstimate = peak24,
-            allTimePeakEstimate = allTimeEst
-        )
     }
 
     suspend fun fetchAll41SteamCurrencies(appId: Int): List<SdbRegionalPrice> = withContext(Dispatchers.IO) {
@@ -808,7 +795,7 @@ object ValveSteamClient {
                             priceInEur = eurVal,
                             diffPercentageVsEur = 0.0
                         )
-                    } catch (_: Exception) {
+                    } catch (_: Throwable) {
                         null
                     }
                 }
@@ -821,38 +808,49 @@ object ValveSteamClient {
         fetched.map { item ->
             val diff = if (baseEur > 0.0) ((item.priceInEur - baseEur) / baseEur) * 100.0 else 0.0
             item.copy(diffPercentageVsEur = diff)
-        }.sortedBy { it.priceInEur }
+        }.distinctBy { it.regionKey }.sortedBy { it.priceInEur }
     }
 
     suspend fun fetchAppPatchNotes(appId: Int): List<SdbPatchNote> = withContext(Dispatchers.IO) {
-        val raw = getJson("https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=$appId&count=10&maxlength=700")
-        if (raw.isBlank()) return@withContext emptyList()
+        try {
+            val raw = getJson("https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=$appId&count=10&maxlength=700")
+            if (raw.isBlank()) return@withContext emptyList()
 
-        val items = JSONObject(raw).optJSONObject("appnews")?.optJSONArray("newsitems") ?: return@withContext emptyList()
-        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("es", "ES"))
-        val out = mutableListOf<SdbPatchNote>()
+            val items = JSONObject(raw).optJSONObject("appnews")?.optJSONArray("newsitems") ?: return@withContext emptyList()
+            val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("es", "ES"))
+            val out = mutableListOf<SdbPatchNote>()
 
-        for (i in 0 until items.length()) {
-            val n = items.optJSONObject(i) ?: continue
-            val ts = n.optLong("date", 0L) * 1000L
-            out.add(
-                SdbPatchNote(
-                    gid = n.optString("gid", "$i"),
-                    title = n.optString("title", "Actualización"),
-                    dateFormatted = if (ts > 0) sdf.format(Date(ts)) else "Reciente",
-                    contentsClean = stripHtml(n.optString("contents", "")),
-                    feedLabel = n.optString("feedlabel", "Patch Notes")
+            for (i in 0 until items.length()) {
+                val n = items.optJSONObject(i) ?: continue
+                val ts = n.optLong("date", 0L) * 1000L
+                out.add(
+                    SdbPatchNote(
+                        gid = n.optString("gid", "note_$i"),
+                        title = n.optString("title", "Actualización"),
+                        dateFormatted = if (ts > 0) sdf.format(Date(ts)) else "Reciente",
+                        contentsClean = stripHtml(n.optString("contents", "")),
+                        feedLabel = n.optString("feedlabel", "Patch Notes")
+                    )
                 )
-            )
+            }
+            out.distinctBy { it.gid }
+        } catch (_: Throwable) {
+            emptyList()
         }
-        out
     }
 }
 
 // ============================================================================
-// VIEWMODEL GLOBAL
+// VIEWMODEL GLOBAL CON COROUTINE EXCEPTION HANDLER ANTI-CRASH
 // ============================================================================
 class SdbMainViewModel : ViewModel() {
+
+    private val safeHandler = CoroutineExceptionHandler { _, _ ->
+        isLoading = false
+        isInspectorLoading = false
+        isLoadingPricesMatrix = false
+        isLoadingSuggestions = false
+    }
 
     var isLoading by mutableStateOf(true)
         private set
@@ -905,7 +903,7 @@ class SdbMainViewModel : ViewModel() {
             return
         }
 
-        debounceJob = viewModelScope.launch {
+        debounceJob = viewModelScope.launch(safeHandler) {
             isLoadingSuggestions = true
             delay(200L)
             try {
@@ -922,7 +920,7 @@ class SdbMainViewModel : ViewModel() {
     }
 
     fun refreshAllSteamData() {
-        viewModelScope.launch {
+        viewModelScope.launch(safeHandler) {
             isLoading = true
             try {
                 val cats = ValveSteamClient.fetchStoreCategories()
@@ -941,13 +939,13 @@ class SdbMainViewModel : ViewModel() {
                             val p = ValveSteamClient.fetchLivePlayers(g.appId)
                             g.copy(currentPlayers = p, peak24hEstimate = (p * 1.25).toInt())
                         }
-                    }.awaitAll()
+                    }.awaitAll().distinctBy { it.appId }
                 }
 
                 mostPlayedGames = top100Def.await()
                 upcomingCalendarGames = upcomingDef.await()
                 topWantedGames = wantedDef.await()
-                activeSalesGames = specialsRaw.sortedByDescending { it.discountPct }
+                activeSalesGames = specialsRaw.distinctBy { it.appId }.sortedByDescending { it.discountPct }
 
                 if (calcCart.isEmpty() && topWantedGames.isNotEmpty()) {
                     calcCart = topWantedGames.filter { !it.isFree }.take(4)
@@ -960,7 +958,7 @@ class SdbMainViewModel : ViewModel() {
 
     fun openAppInspector(appId: Int) {
         clearLiveSearch()
-        viewModelScope.launch {
+        viewModelScope.launch(safeHandler) {
             isInspectorVisible = true
             isInspectorLoading = true
             isLoadingPricesMatrix = true
@@ -994,7 +992,7 @@ class SdbMainViewModel : ViewModel() {
         calcCart = if (calcCart.any { it.appId == game.appId }) {
             calcCart.filterNot { it.appId == game.appId }
         } else {
-            calcCart + game
+            (calcCart + game).distinctBy { it.appId }
         }
     }
 }
@@ -1007,8 +1005,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme(colorScheme = SteamBDDarkColors) {
-                SteamBDRootApp()
+            MaterialTheme(colorScheme = SteamBdDarkColors) {
+                SteamBdRootApp()
             }
         }
     }
@@ -1019,7 +1017,7 @@ enum class MainNavSection(
     val subtitle: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    HOME("Portada (Home)", "Resumen general estilo SteamBD", Icons.Default.Home),
+    HOME("Portada (Home)", "Resumen general de SteamBD", Icons.Default.Home),
     CHARTS("Steam Charts (Top 100)", "Ranking en vivo de los 100 más jugados", Icons.Default.ShowChart),
     SALES("Sales Explorer", "Ofertas y descuentos activos en España", Icons.Default.LocalOffer),
     CALENDAR("Release Calendar", "Próximos lanzamientos con póster oficial", Icons.Default.CalendarMonth),
@@ -1028,7 +1026,7 @@ enum class MainNavSection(
 }
 
 @Composable
-fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
+fun SteamBdRootApp(vm: SdbMainViewModel = viewModel()) {
     var currentSection by remember { mutableStateOf(MainNavSection.HOME) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -1054,7 +1052,6 @@ fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
                 drawerContentColor = SdbTextMain,
                 modifier = Modifier.width(300.dp)
             ) {
-                // Cabecera del menú desplegable estilo SteamBD
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1075,7 +1072,7 @@ fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text("SteamBD", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
-                            Text("Cliente Nativo v1.0.4 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
+                            Text("Cliente Nativo v1.0.5 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
@@ -1150,7 +1147,6 @@ fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
                                 .padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Botón del Menú Desplegable (o Volver si estamos dentro de un juego)
                             if (vm.isInspectorVisible) {
                                 IconButton(
                                     onClick = { vm.closeAppInspector() },
@@ -1167,7 +1163,6 @@ fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
                                 }
                             }
 
-                            // Botón Home directo (Portada de SteamBD)
                             IconButton(
                                 onClick = {
                                     vm.clearLiveSearch()
@@ -1185,7 +1180,6 @@ fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
 
                             Spacer(Modifier.width(4.dp))
 
-                            // Buscador instantáneo con autocompletado en vivo
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -1282,15 +1276,15 @@ fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
                     FullScreenAppInspector(vm = vm, onBack = { vm.closeAppInspector() })
                 } else {
                     when (currentSection) {
-                        MainNavSection.HOME -> SteamBDHomePortalScreen(
+                        MainNavSection.HOME -> SteamBdHomePortalScreen(
                             vm = vm,
                             onNavigate = { target -> currentSection = target }
                         )
-                        MainNavSection.CHARTS -> SteamBDChartsTab(vm)
-                        MainNavSection.SALES -> SteamBDSalesTab(vm)
-                        MainNavSection.CALENDAR -> SteamBDCalendarTab(vm)
-                        MainNavSection.EVENTS -> SteamBDNextSalesTab()
-                        MainNavSection.CALC -> SteamBDCalculatorTab(vm)
+                        MainNavSection.CHARTS -> SteamBdChartsTab(vm)
+                        MainNavSection.SALES -> SteamBdSalesTab(vm)
+                        MainNavSection.CALENDAR -> SteamBdCalendarTab(vm)
+                        MainNavSection.EVENTS -> SteamBdNextSalesTab()
+                        MainNavSection.CALC -> SteamBdCalculatorTab(vm)
                     }
                 }
 
@@ -1315,10 +1309,10 @@ fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
 }
 
 // ============================================================================
-// NUEVA SECCIÓN HOME: PORTADA PRINCIPAL DE SteamBD
+// PORTADA PRINCIPAL DE STEAMBD (HOME)
 // ============================================================================
 @Composable
-fun SteamBDHomePortalScreen(
+fun SteamBdHomePortalScreen(
     vm: SdbMainViewModel,
     onNavigate: (MainNavSection) -> Unit
 ) {
@@ -1352,7 +1346,6 @@ fun SteamBDHomePortalScreen(
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Banner Hero de Portada de SteamBD + Ticker de Próxima Rebaja en vivo
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = SdbHeader),
@@ -1363,7 +1356,7 @@ fun SteamBDHomePortalScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "SteamBD DATABASE PORTAL",
+                        text = "STEAMBD DATABASE PORTAL",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = SdbBlue,
@@ -1378,7 +1371,6 @@ fun SteamBDHomePortalScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Barra interactiva de próxima rebaja en la portada
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1423,7 +1415,6 @@ fun SteamBDHomePortalScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Accesos rápidos estilo cabecera de SteamBD
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1453,7 +1444,6 @@ fun SteamBDHomePortalScreen(
             }
         }
 
-        // TABLA 1 DE PORTADA: MOST PLAYED GAMES (Con botón directo al Top 100)
         item {
             HomePortalTableBlock(
                 title = "MOST PLAYED GAMES",
@@ -1467,7 +1457,6 @@ fun SteamBDHomePortalScreen(
             )
         }
 
-        // TABLA 2 DE PORTADA: TRENDING & POPULAR RELEASES
         item {
             HomePortalTableBlock(
                 title = "POPULAR & TRENDING RELEASES",
@@ -1483,7 +1472,6 @@ fun SteamBDHomePortalScreen(
             )
         }
 
-        // TABLA 3 DE PORTADA: HOT SALES & SPECIALS
         item {
             HomePortalTableBlock(
                 title = "HOT SALES & BIGGEST DISCOUNTS",
@@ -1603,10 +1591,10 @@ fun HomePortalTableBlock(
 }
 
 // ============================================================================
-// SECCIÓN CHARTS CON SELECTOR TOP 15 / TOP 50 / TOP 100 COMPLETO
+// SECCIÓN CHARTS CON SELECTOR TOP 25 / TOP 50 / TOP 100
 // ============================================================================
 @Composable
-fun SteamBDChartsTab(vm: SdbMainViewModel) {
+fun SteamBdChartsTab(vm: SdbMainViewModel) {
     var subTab by remember { mutableIntStateOf(0) }
     var displayLimit by remember { mutableIntStateOf(25) }
     val numFmt = remember { NumberFormat.getIntegerInstance(Locale("es", "ES")) }
@@ -1656,7 +1644,6 @@ fun SteamBDChartsTab(vm: SdbMainViewModel) {
             }
         }
 
-        // Selector: Más Jugados vs Más Deseados
         item {
             Row(
                 modifier = Modifier
@@ -1689,7 +1676,6 @@ fun SteamBDChartsTab(vm: SdbMainViewModel) {
             }
         }
 
-        // Botones para elegir cuántos juegos ver: Top 25, Top 50 o Ver Top 100
         if (subTab == 0) {
             item {
                 Row(
@@ -1731,7 +1717,7 @@ fun SteamBDChartsTab(vm: SdbMainViewModel) {
         }
 
         if (subTab == 0) {
-            itemsIndexed(visibleMostPlayed, key = { _, g -> g.appId }) { index, game ->
+            itemsIndexed(visibleMostPlayed, key = { idx, g -> "chart_${idx}_${g.appId}" }) { index, game ->
                 val ratio = (game.currentPlayers.toFloat() / maxConcurrent.toFloat()).coerceIn(0.03f, 1f)
                 Column(
                     modifier = Modifier
@@ -1809,8 +1795,8 @@ fun SteamBDChartsTab(vm: SdbMainViewModel) {
                 }
             }
         } else {
-            itemsIndexed(vm.topWantedGames, key = { _, g -> g.appId }) { index, game ->
-                SteamBDDenseGameRow(
+            itemsIndexed(vm.topWantedGames, key = { idx, g -> "wanted_${idx}_${g.appId}" }) { index, game ->
+                SteamBdDenseGameRow(
                     rank = index + 1,
                     game = game,
                     onClick = { vm.openAppInspector(game.appId) }
@@ -1821,10 +1807,10 @@ fun SteamBDChartsTab(vm: SdbMainViewModel) {
 }
 
 // ============================================================================
-// SECCIÓN NEXT STEAM SALES CON CONTADOR VINCULADO AL EVENTO REAL Y PULSO VIVO
+// SECCIÓN NEXT STEAM SALES CON CONTADOR VINCULADO AL EVENTO REAL
 // ============================================================================
 @Composable
-fun SteamBDNextSalesTab() {
+fun SteamBdNextSalesTab() {
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
@@ -1846,7 +1832,6 @@ fun SteamBDNextSalesTab() {
     val secs = diffSec % 60
     val pulseOn = (secs % 2L) == 0L
 
-    // También buscamos cuál es la siguiente GRAN rebaja estacional (Major Sale)
     val nextMajorSale = events.firstOrNull { it.category.contains("MAJOR") && it.startDateMillis > nowMillis }
 
     LazyColumn(
@@ -1866,7 +1851,6 @@ fun SteamBDNextSalesTab() {
                     modifier = Modifier.padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Indicador con pulso que confirma que el reloj está corriendo en vivo
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
@@ -1886,7 +1870,6 @@ fun SteamBDNextSalesTab() {
 
                     Spacer(Modifier.height(6.dp))
 
-                    // Nombre explícito del evento al que pertenece la cuenta atrás
                     Text(
                         text = activeOrNext.name,
                         fontSize = 18.sp,
@@ -2025,7 +2008,7 @@ fun CountdownBox(number: String, label: String, highlightBorder: Boolean) {
 }
 
 // ============================================================================
-// COMPONENTE DE AUTOCOMPLETADO CON MINIATURAS INFALIBLES
+// AUTOCOMPLETADO INSTANTÁNEO
 // ============================================================================
 @Composable
 fun LiveAutocompleteDropdownOverlay(
@@ -2079,7 +2062,7 @@ fun LiveAutocompleteDropdownOverlay(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(vertical = 6.dp)
                 ) {
-                    items(suggestions, key = { it.appId }) { item ->
+                    itemsIndexed(suggestions, key = { idx, it -> "sug_${idx}_${it.appId}" }) { _, item ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2145,10 +2128,11 @@ fun HighlightedSearchTitle(fullTitle: String, searchQuery: String) {
                         append(fullTitle.substring(startIndex, matchIndex))
                     }
                 }
+                val endIdx = (matchIndex + searchQuery.length).coerceAtMost(fullTitle.length)
                 withStyle(SpanStyle(color = SdbBlue, fontWeight = FontWeight.ExtraBold)) {
-                    append(fullTitle.substring(matchIndex, matchIndex + searchQuery.length))
+                    append(fullTitle.substring(matchIndex, endIdx))
                 }
-                startIndex = matchIndex + searchQuery.length
+                startIndex = endIdx
             }
         }
     }
@@ -2165,7 +2149,7 @@ fun HighlightedSearchTitle(fullTitle: String, searchQuery: String) {
 // CALENDARIO VISUAL CON CARÁTULAS INTELIGENTES
 // ============================================================================
 @Composable
-fun SteamBDCalendarTab(vm: SdbMainViewModel) {
+fun SteamBdCalendarTab(vm: SdbMainViewModel) {
     if (vm.isLoading) {
         LoadingStateBox("Descargando pósters oficiales y fechas del calendario de Steam...")
         return
@@ -2193,7 +2177,7 @@ fun SteamBDCalendarTab(vm: SdbMainViewModel) {
             contentPadding = PaddingValues(bottom = 16.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(vm.upcomingCalendarGames, key = { it.appId }) { game ->
+            gridItemsIndexed(vm.upcomingCalendarGames, key = { idx, g -> "cal_${idx}_${g.appId}" }) { _, game ->
                 Card(
                     colors = CardDefaults.cardColors(containerColor = SdbHeader),
                     shape = RoundedCornerShape(8.dp),
@@ -2328,7 +2312,7 @@ fun LivePlayersBarChartCanvas(games: List<SdbGameSummary>, maxPlayers: Int) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Top 10 en vivo • Usa los botones inferiores para ver hasta el Top 100",
+            text = "Top 10 en vivo • Usa los botones inferiores para desplegar hasta el Top 100",
             fontSize = 10.sp,
             color = SdbTextMuted
         )
@@ -2336,7 +2320,7 @@ fun LivePlayersBarChartCanvas(games: List<SdbGameSummary>, maxPlayers: Int) {
 }
 
 @Composable
-fun SteamBDSalesTab(vm: SdbMainViewModel) {
+fun SteamBdSalesTab(vm: SdbMainViewModel) {
     var minDiscount by remember { mutableIntStateOf(0) }
     var maxEuros by remember { mutableIntStateOf(999) }
 
@@ -2347,7 +2331,7 @@ fun SteamBDSalesTab(vm: SdbMainViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-        Text("SteamBD SALES EXPLORER (TIENDA ESPAÑA - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
+        Text("STEAMBD SALES EXPLORER (TIENDA ESPAÑA - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
         Spacer(Modifier.height(6.dp))
 
         Row(
@@ -2384,8 +2368,8 @@ fun SteamBDSalesTab(vm: SdbMainViewModel) {
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            itemsIndexed(filtered, key = { _, g -> g.appId }) { idx, game ->
-                SteamBDDenseGameRow(
+            itemsIndexed(filtered, key = { idx, g -> "sale_${idx}_${g.appId}" }) { idx, game ->
+                SteamBdDenseGameRow(
                     rank = idx + 1,
                     game = game,
                     onClick = { vm.openAppInspector(game.appId) }
@@ -2396,7 +2380,7 @@ fun SteamBDSalesTab(vm: SdbMainViewModel) {
 }
 
 @Composable
-fun SteamBDCalculatorTab(vm: SdbMainViewModel) {
+fun SteamBdCalculatorTab(vm: SdbMainViewModel) {
     val totalNow = vm.calcCart.sumOf { it.finalCents } / 100.0
     val totalBase = vm.calcCart.sumOf { if (it.originalCents > 0) it.originalCents else it.finalCents } / 100.0
     val saved = (totalBase - totalNow).coerceAtLeast(0.0)
@@ -2413,7 +2397,7 @@ fun SteamBDCalculatorTab(vm: SdbMainViewModel) {
                 modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Text("SteamBD CALCULATOR • VALORACIÓN DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
+                    Text("STEAMBD CALCULATOR • VALORACIÓN DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
@@ -2431,7 +2415,7 @@ fun SteamBDCalculatorTab(vm: SdbMainViewModel) {
             }
         }
 
-        itemsIndexed(vm.calcCart, key = { _, g -> g.appId }) { idx, item ->
+        itemsIndexed(vm.calcCart, key = { idx, g -> "calc_${idx}_${g.appId}" }) { idx, item ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2462,7 +2446,7 @@ fun SteamBDCalculatorTab(vm: SdbMainViewModel) {
 }
 
 @Composable
-fun SteamBDDenseGameRow(
+fun SteamBdDenseGameRow(
     rank: Int,
     game: SdbGameSummary,
     onClick: () -> Unit
@@ -2695,7 +2679,7 @@ fun InspectorPricesTab(prices: List<SdbRegionalPrice>, isLoadingPrices: Boolean)
             }
         }
 
-        itemsIndexed(prices, key = { _, item -> item.regionKey }) { idx, item ->
+        itemsIndexed(prices, key = { idx, item -> "reg_${idx}_${item.regionKey}" }) { idx, item ->
             val barFraction = (item.priceInEur / maxEur).toFloat().coerceIn(0.04f, 1f)
             val isCheaper = item.diffPercentageVsEur < -0.5
             val isMoreExpensive = item.diffPercentageVsEur > 0.5
@@ -2969,7 +2953,7 @@ fun InspectorDlcsAndPackagesTab(app: SdbFullAppData, onOpenDlc: (Int) -> Unit) {
             )
         }
 
-        items(app.packageIds) { subId ->
+        itemsIndexed(app.packageIds, key = { idx, subId -> "sub_${idx}_$subId" }) { _, subId ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2994,7 +2978,7 @@ fun InspectorDlcsAndPackagesTab(app: SdbFullAppData, onOpenDlc: (Int) -> Unit) {
             )
         }
 
-        itemsIndexed(app.dlcAppIds) { idx, dlcId ->
+        itemsIndexed(app.dlcAppIds, key = { idx, dlcId -> "dlc_${idx}_$dlcId" }) { idx, dlcId ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3036,7 +3020,7 @@ fun InspectorPatchNotesTab(notes: List<SdbPatchNote>) {
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(notes, key = { it.gid }) { note ->
+        itemsIndexed(notes, key = { idx, n -> "note_${idx}_${n.gid}" }) { _, note ->
             Card(
                 colors = CardDefaults.cardColors(containerColor = SdbHeader),
                 shape = RoundedCornerShape(6.dp),
@@ -3064,7 +3048,7 @@ fun InspectorMediaTab(app: SdbFullAppData) {
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(app.screenshots) { url ->
+        itemsIndexed(app.screenshots, key = { idx, url -> "shot_${idx}_$url" }) { _, url ->
             SteamSmartThumb(
                 appId = app.appId,
                 primaryUrl = url,
@@ -3089,4 +3073,3 @@ fun LoadingStateBox(message: String) {
         }
     }
 }
-
