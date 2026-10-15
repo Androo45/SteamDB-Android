@@ -1,34 +1,36 @@
-﻿name: Compilar SteamDB APK
+name: Build Android APK
 
 on:
   push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Descargar codigo del repositorio
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Configurar Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
+    - name: Set up JDK 17
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
-      - name: Instalar motor Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
 
-      - name: Compilar archivo APK
-        run: gradle assembleDebug --no-daemon
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
 
-      - name: Publicar APK listo para descargar
-        uses: actions/upload-artifact@v4
-        with:
-          name: SteamDB-Pocket-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
 
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SteamDB-Pocket-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
