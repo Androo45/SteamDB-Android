@@ -1,4 +1,4 @@
-package com.example.steamdb
+﻿package com.example.SteamBD
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -77,7 +77,7 @@ import java.util.Locale
 import kotlin.math.sin
 
 // ============================================================================
-// PALETA DE COLORES OFICIAL DE STEAMDB.INFO
+// PALETA DE COLORES OFICIAL DE SteamBD
 // ============================================================================
 val SdbBg = Color(0xFF161920)
 val SdbHeader = Color(0xFF1D212A)
@@ -93,7 +93,7 @@ val SdbOrange = Color(0xFFFFB300)
 val SdbTextMain = Color(0xFFE2E6ED)
 val SdbTextMuted = Color(0xFF8A94A6)
 
-private val SteamDbDarkColors = darkColorScheme(
+private val SteamBDDarkColors = darkColorScheme(
     primary = SdbBlue,
     secondary = SdbBrightGreen,
     tertiary = SdbSaleBadgeText,
@@ -172,7 +172,7 @@ fun SteamSmartThumb(
                 }
                 Box(modifier = Modifier.fillMaxSize().background(SdbPanel), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (appId > 0) "#$appId" else "DB",
+                        text = if (appId > 0) "#$appId" else "BD",
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
                         color = SdbTextMuted
@@ -353,7 +353,7 @@ object ValveSteamClient {
             requestMethod = "GET"
             connectTimeout = 9000
             readTimeout = 9000
-            setRequestProperty("User-Agent", "SteamDB-Native-Android/1.0.4")
+            setRequestProperty("User-Agent", "SteamBD-Native-Android/1.0.4")
             setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
         }
         return try {
@@ -1007,8 +1007,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme(colorScheme = SteamDbDarkColors) {
-                SteamDbRootApp()
+            MaterialTheme(colorScheme = SteamBDDarkColors) {
+                SteamBDRootApp()
             }
         }
     }
@@ -1019,7 +1019,7 @@ enum class MainNavSection(
     val subtitle: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    HOME("Portada (Home)", "Resumen general estilo SteamDB.info", Icons.Default.Home),
+    HOME("Portada (Home)", "Resumen general estilo SteamBD", Icons.Default.Home),
     CHARTS("Steam Charts (Top 100)", "Ranking en vivo de los 100 más jugados", Icons.Default.ShowChart),
     SALES("Sales Explorer", "Ofertas y descuentos activos en España", Icons.Default.LocalOffer),
     CALENDAR("Release Calendar", "Próximos lanzamientos con póster oficial", Icons.Default.CalendarMonth),
@@ -1028,7 +1028,7 @@ enum class MainNavSection(
 }
 
 @Composable
-fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
+fun SteamBDRootApp(vm: SdbMainViewModel = viewModel()) {
     var currentSection by remember { mutableStateOf(MainNavSection.HOME) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -1054,7 +1054,7 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                 drawerContentColor = SdbTextMain,
                 modifier = Modifier.width(300.dp)
             ) {
-                // Cabecera del menú desplegable estilo SteamDB
+                // Cabecera del menú desplegable estilo SteamBD
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1070,11 +1070,11 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                                 .border(1.5.dp, SdbBlue, RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("DB", fontWeight = FontWeight.Black, fontSize = 16.sp, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                            Text("BD", fontWeight = FontWeight.Black, fontSize = 16.sp, color = SdbBlue, fontFamily = FontFamily.Monospace)
                         }
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text("SteamDB.info", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
+                            Text("SteamBD", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
                             Text("Cliente Nativo v1.0.4 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                         }
                     }
@@ -1167,7 +1167,7 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                                 }
                             }
 
-                            // Botón Home directo (Portada de SteamDB)
+                            // Botón Home directo (Portada de SteamBD)
                             IconButton(
                                 onClick = {
                                     vm.clearLiveSearch()
@@ -1210,7 +1210,7 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                                     Box(modifier = Modifier.weight(1f)) {
                                         if (vm.topSearchText.isEmpty()) {
                                             Text(
-                                                text = "Buscar en SteamDB...",
+                                                text = "Buscar en SteamBD...",
                                                 color = SdbTextMuted,
                                                 fontSize = 13.sp,
                                                 maxLines = 1
@@ -1282,15 +1282,15 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                     FullScreenAppInspector(vm = vm, onBack = { vm.closeAppInspector() })
                 } else {
                     when (currentSection) {
-                        MainNavSection.HOME -> SteamDbHomePortalScreen(
+                        MainNavSection.HOME -> SteamBDHomePortalScreen(
                             vm = vm,
                             onNavigate = { target -> currentSection = target }
                         )
-                        MainNavSection.CHARTS -> SteamDbChartsTab(vm)
-                        MainNavSection.SALES -> SteamDbSalesTab(vm)
-                        MainNavSection.CALENDAR -> SteamDbCalendarTab(vm)
-                        MainNavSection.EVENTS -> SteamDbNextSalesTab()
-                        MainNavSection.CALC -> SteamDbCalculatorTab(vm)
+                        MainNavSection.CHARTS -> SteamBDChartsTab(vm)
+                        MainNavSection.SALES -> SteamBDSalesTab(vm)
+                        MainNavSection.CALENDAR -> SteamBDCalendarTab(vm)
+                        MainNavSection.EVENTS -> SteamBDNextSalesTab()
+                        MainNavSection.CALC -> SteamBDCalculatorTab(vm)
                     }
                 }
 
@@ -1315,10 +1315,10 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
 }
 
 // ============================================================================
-// NUEVA SECCIÓN HOME: PORTADA PRINCIPAL DE STEAMDB.INFO
+// NUEVA SECCIÓN HOME: PORTADA PRINCIPAL DE SteamBD
 // ============================================================================
 @Composable
-fun SteamDbHomePortalScreen(
+fun SteamBDHomePortalScreen(
     vm: SdbMainViewModel,
     onNavigate: (MainNavSection) -> Unit
 ) {
@@ -1333,7 +1333,7 @@ fun SteamDbHomePortalScreen(
     }
 
     if (vm.isLoading) {
-        LoadingStateBox("Cargando portada de SteamDB.info (Most Played, Trending, Hot Sales)...")
+        LoadingStateBox("Cargando portada de SteamBD (Most Played, Trending, Hot Sales)...")
         return
     }
 
@@ -1352,7 +1352,7 @@ fun SteamDbHomePortalScreen(
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Banner Hero de Portada de SteamDB + Ticker de Próxima Rebaja en vivo
+        // Banner Hero de Portada de SteamBD + Ticker de Próxima Rebaja en vivo
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = SdbHeader),
@@ -1363,7 +1363,7 @@ fun SteamDbHomePortalScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "STEAMDB DATABASE PORTAL",
+                        text = "SteamBD DATABASE PORTAL",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = SdbBlue,
@@ -1423,7 +1423,7 @@ fun SteamDbHomePortalScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Accesos rápidos estilo cabecera de SteamDB
+                    // Accesos rápidos estilo cabecera de SteamBD
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1606,7 +1606,7 @@ fun HomePortalTableBlock(
 // SECCIÓN CHARTS CON SELECTOR TOP 15 / TOP 50 / TOP 100 COMPLETO
 // ============================================================================
 @Composable
-fun SteamDbChartsTab(vm: SdbMainViewModel) {
+fun SteamBDChartsTab(vm: SdbMainViewModel) {
     var subTab by remember { mutableIntStateOf(0) }
     var displayLimit by remember { mutableIntStateOf(25) }
     val numFmt = remember { NumberFormat.getIntegerInstance(Locale("es", "ES")) }
@@ -1810,7 +1810,7 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
             }
         } else {
             itemsIndexed(vm.topWantedGames, key = { _, g -> g.appId }) { index, game ->
-                SteamDbDenseGameRow(
+                SteamBDDenseGameRow(
                     rank = index + 1,
                     game = game,
                     onClick = { vm.openAppInspector(game.appId) }
@@ -1824,7 +1824,7 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
 // SECCIÓN NEXT STEAM SALES CON CONTADOR VINCULADO AL EVENTO REAL Y PULSO VIVO
 // ============================================================================
 @Composable
-fun SteamDbNextSalesTab() {
+fun SteamBDNextSalesTab() {
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
@@ -2165,7 +2165,7 @@ fun HighlightedSearchTitle(fullTitle: String, searchQuery: String) {
 // CALENDARIO VISUAL CON CARÁTULAS INTELIGENTES
 // ============================================================================
 @Composable
-fun SteamDbCalendarTab(vm: SdbMainViewModel) {
+fun SteamBDCalendarTab(vm: SdbMainViewModel) {
     if (vm.isLoading) {
         LoadingStateBox("Descargando pósters oficiales y fechas del calendario de Steam...")
         return
@@ -2336,7 +2336,7 @@ fun LivePlayersBarChartCanvas(games: List<SdbGameSummary>, maxPlayers: Int) {
 }
 
 @Composable
-fun SteamDbSalesTab(vm: SdbMainViewModel) {
+fun SteamBDSalesTab(vm: SdbMainViewModel) {
     var minDiscount by remember { mutableIntStateOf(0) }
     var maxEuros by remember { mutableIntStateOf(999) }
 
@@ -2347,7 +2347,7 @@ fun SteamDbSalesTab(vm: SdbMainViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-        Text("STEAMDB SALES EXPLORER (TIENDA ESPAÑA - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
+        Text("SteamBD SALES EXPLORER (TIENDA ESPAÑA - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
         Spacer(Modifier.height(6.dp))
 
         Row(
@@ -2385,7 +2385,7 @@ fun SteamDbSalesTab(vm: SdbMainViewModel) {
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             itemsIndexed(filtered, key = { _, g -> g.appId }) { idx, game ->
-                SteamDbDenseGameRow(
+                SteamBDDenseGameRow(
                     rank = idx + 1,
                     game = game,
                     onClick = { vm.openAppInspector(game.appId) }
@@ -2396,7 +2396,7 @@ fun SteamDbSalesTab(vm: SdbMainViewModel) {
 }
 
 @Composable
-fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
+fun SteamBDCalculatorTab(vm: SdbMainViewModel) {
     val totalNow = vm.calcCart.sumOf { it.finalCents } / 100.0
     val totalBase = vm.calcCart.sumOf { if (it.originalCents > 0) it.originalCents else it.finalCents } / 100.0
     val saved = (totalBase - totalNow).coerceAtLeast(0.0)
@@ -2413,7 +2413,7 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
                 modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Text("STEAMDB CALCULATOR • VALORACIÓN DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
+                    Text("SteamBD CALCULATOR • VALORACIÓN DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
@@ -2462,7 +2462,7 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
 }
 
 @Composable
-fun SteamDbDenseGameRow(
+fun SteamBDDenseGameRow(
     rank: Int,
     game: SdbGameSummary,
     onClick: () -> Unit
@@ -3089,3 +3089,4 @@ fun LoadingStateBox(message: String) {
         }
     }
 }
+

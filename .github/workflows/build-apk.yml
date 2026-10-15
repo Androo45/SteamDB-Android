@@ -1,4 +1,4 @@
-name: Compilar SteamDB APK
+﻿name: Compilar SteamBD APK
 
 on:
   push:
@@ -29,5 +29,6 @@ jobs:
       - name: Publicar APK listo para descargar
         uses: actions/upload-artifact@v4
         with:
-          name: SteamDB-Pocket-APK
+          name: SteamBD-Pocket-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+

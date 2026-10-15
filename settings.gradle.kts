@@ -1,4 +1,4 @@
-pluginManagement {
+﻿pluginManagement {
     repositories {
         google()
         mavenCentral()
@@ -12,5 +12,6 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "SteamDBPocket"
+rootProject.name = "SteamBD"
 include(":app")
+
