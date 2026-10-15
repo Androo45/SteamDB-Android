@@ -140,7 +140,7 @@ fun SteamSmartThumb(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (appId > 0) "#$appId" else "BD",
+                text = if (appId > 0) "#$appId" else "DB",
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
@@ -327,7 +327,7 @@ object ValveSteamClient {
                 requestMethod = "GET"
                 connectTimeout = 8000
                 readTimeout = 8000
-                setRequestProperty("User-Agent", "SteamBD-Android/1.0.5")
+                setRequestProperty("User-Agent", "SteamDB-Android/1.0.5")
                 setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
             }
             try {
@@ -1017,7 +1017,7 @@ enum class MainNavSection(
     val subtitle: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    HOME("Portada (Home)", "Resumen general de SteamBD", Icons.Default.Home),
+    HOME("Portada (Home)", "Resumen general de SteamDB", Icons.Default.Home),
     CHARTS("Steam Charts (Top 100)", "Ranking en vivo de los 100 más jugados", Icons.Default.ShowChart),
     SALES("Sales Explorer", "Ofertas y descuentos activos en España", Icons.Default.LocalOffer),
     CALENDAR("Release Calendar", "Próximos lanzamientos con póster oficial", Icons.Default.CalendarMonth),
@@ -1067,11 +1067,11 @@ fun SteamBdRootApp(vm: SdbMainViewModel = viewModel()) {
                                 .border(1.5.dp, SdbBlue, RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("BD", fontWeight = FontWeight.Black, fontSize = 16.sp, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                            Text("DB", fontWeight = FontWeight.Black, fontSize = 16.sp, color = SdbBlue, fontFamily = FontFamily.Monospace)
                         }
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text("SteamBD", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
+                            Text("SteamDB", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
                             Text("Cliente Nativo v1.0.5 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                         }
                     }
@@ -1204,7 +1204,7 @@ fun SteamBdRootApp(vm: SdbMainViewModel = viewModel()) {
                                     Box(modifier = Modifier.weight(1f)) {
                                         if (vm.topSearchText.isEmpty()) {
                                             Text(
-                                                text = "Buscar en SteamBD...",
+                                                text = "Buscar en SteamDB...",
                                                 color = SdbTextMuted,
                                                 fontSize = 13.sp,
                                                 maxLines = 1
@@ -1309,7 +1309,7 @@ fun SteamBdRootApp(vm: SdbMainViewModel = viewModel()) {
 }
 
 // ============================================================================
-// PORTADA PRINCIPAL DE STEAMBD (HOME)
+// PORTADA PRINCIPAL DE STEAMDB (HOME)
 // ============================================================================
 @Composable
 fun SteamBdHomePortalScreen(
@@ -1327,7 +1327,7 @@ fun SteamBdHomePortalScreen(
     }
 
     if (vm.isLoading) {
-        LoadingStateBox("Cargando portada de SteamBD (Most Played, Trending, Hot Sales)...")
+        LoadingStateBox("Cargando portada de SteamDB (Most Played, Trending, Hot Sales)...")
         return
     }
 
@@ -1356,7 +1356,7 @@ fun SteamBdHomePortalScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "STEAMBD DATABASE PORTAL",
+                        text = "STEAMDB DATABASE PORTAL",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = SdbBlue,
@@ -2331,7 +2331,7 @@ fun SteamBdSalesTab(vm: SdbMainViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-        Text("STEAMBD SALES EXPLORER (TIENDA ESPAÑA - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
+        Text("STEAMDB SALES EXPLORER (TIENDA ESPAÑA - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
         Spacer(Modifier.height(6.dp))
 
         Row(
@@ -2397,7 +2397,7 @@ fun SteamBdCalculatorTab(vm: SdbMainViewModel) {
                 modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Text("STEAMBD CALCULATOR • VALORACIÓN DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
+                    Text("STEAMDB CALCULATOR • VALORACIÓN DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {

@@ -12,6 +12,6 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "SteamBD"
+rootProject.name = "SteamDB"
 include(":app")
 
