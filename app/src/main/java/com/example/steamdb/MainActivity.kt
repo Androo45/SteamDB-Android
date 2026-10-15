@@ -91,7 +91,7 @@ val SdbOrange = Color(0xFFFFB300)
 val SdbTextMain = Color(0xFFE2E6ED)
 val SdbTextMuted = Color(0xFF8A94A6)
 
-private val SteamBdDarkColors = darkColorScheme(
+private val SteamDbDarkColors = darkColorScheme(
     primary = SdbBlue,
     secondary = SdbBrightGreen,
     tertiary = SdbSaleBadgeText,
@@ -104,9 +104,6 @@ private val SteamBdDarkColors = darkColorScheme(
     onSurfaceVariant = SdbTextMuted
 )
 
-// ============================================================================
-// MINIATURAS ULTRA-ESTABLES CON FALLBACK MULTI-CDN SIN SUBCOMPOSICIÓN
-// ============================================================================
 @Composable
 fun SteamSmartThumb(
     appId: Int,
@@ -140,7 +137,7 @@ fun SteamSmartThumb(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (appId > 0) "#$appId" else "DB",
+                text = if (appId > 0) "#$appId" else "BD",
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
@@ -167,9 +164,6 @@ fun SteamSmartThumb(
     }
 }
 
-// ============================================================================
-// MODELOS DE DATOS
-// ============================================================================
 data class SdbGameSummary(
     val appId: Int,
     val name: String,
@@ -256,67 +250,56 @@ data class SdbSaleEvent(
 object SteamSalesSchedule {
     val officialEvents = listOf(
         SdbSaleEvent(
-            name = "Steam Next Fest: October Edition",
-            category = "FESTIVAL DE DEMOS",
-            startDateMillis = 1760374800000L,
-            endDateMillis = 1760979600000L,
-            dateRangeText = "13 Oct — 20 Oct 2026",
-            description = "Cientos de demos jugables gratuitas y emisiones en directo de próximos estrenos en Steam."
-        ),
-        SdbSaleEvent(
             name = "Steam Scream Fest (Halloween Sale)",
             category = "FESTIVAL TEMÁTICO",
-            startDateMillis = 1761584400000L,
-            endDateMillis = 1762189200000L,
+            startDateMillis = 1792947600000L, // Oct 2026 en adelante
+            endDateMillis = 1793552400000L,
             dateRangeText = "27 Oct — 03 Nov 2026",
-            description = "Rebajas especiales en juegos de terror, supervivencia oscura y eventos de Halloween."
-        ),
-        SdbSaleEvent(
-            name = "Steam Cooking & Survival Fest",
-            category = "FESTIVAL TEMÁTICO",
-            startDateMillis = 1762880400000L,
-            endDateMillis = 1763485200000L,
-            dateRangeText = "11 Nov — 18 Nov 2026",
-            description = "Descuentos especiales en simuladores, supervivencia y gestión."
+            description = "Descuentos especiales en juegos de terror, supervivencia y misterio."
         ),
         SdbSaleEvent(
             name = "Steam Autumn Sale (Gran Rebaja de Otoño)",
             category = "MAJOR SEASONAL SALE",
-            startDateMillis = 1764176400000L,
-            endDateMillis = 1764781200000L,
+            startDateMillis = 1795539600000L,
+            endDateMillis = 1796144400000L,
             dateRangeText = "26 Nov — 03 Dic 2026",
-            description = "Una de las 4 grandes rebajas estacionales de Steam + Nominaciones a los Steam Awards."
+            description = "Gran rebaja estacional de otoño y nominaciones a los Steam Awards."
         ),
         SdbSaleEvent(
             name = "Steam Winter Sale (Gran Rebaja de Invierno)",
             category = "MAJOR SEASONAL SALE",
-            startDateMillis = 1766077200000L,
-            endDateMillis = 1767546000000L,
+            startDateMillis = 1797440400000L,
+            endDateMillis = 1798909200000L,
             dateRangeText = "18 Dic 2026 — 04 Ene 2027",
             description = "El mayor evento de ofertas del año en todo el catálogo de Steam."
         ),
         SdbSaleEvent(
+            name = "Steam Next Fest: February Edition",
+            category = "FESTIVAL DE DEMOS",
+            startDateMillis = 1802019600000L,
+            endDateMillis = 1802624400000L,
+            dateRangeText = "09 Feb — 16 Feb 2027",
+            description = "Festival de demos jugables de próximos lanzamientos."
+        ),
+        SdbSaleEvent(
             name = "Steam Spring Sale (Gran Rebaja de Primavera)",
             category = "MAJOR SEASONAL SALE",
-            startDateMillis = 1773853200000L,
-            endDateMillis = 1774458000000L,
+            startDateMillis = 1805216400000L,
+            endDateMillis = 1805821200000L,
             dateRangeText = "18 Mar — 25 Mar 2027",
-            description = "Gran rebaja estacional de primavera en miles de juegos."
+            description = "Rebaja estacional de primavera en miles de títulos."
         ),
         SdbSaleEvent(
             name = "Steam Summer Sale (Gran Rebaja de Verano)",
             category = "MAJOR SEASONAL SALE",
-            startDateMillis = 1782406800000L,
-            endDateMillis = 1783616400000L,
+            startDateMillis = 1813770000000L,
+            endDateMillis = 1814979600000L,
             dateRangeText = "25 Jun — 09 Jul 2027",
-            description = "Gran rebaja estival de dos semanas en todo el catálogo de Valve."
+            description = "Gran rebaja anual de verano con descuentos masivos."
         )
     )
 }
 
-// ============================================================================
-// CLIENTE DIRECTO A LAS APIS DE VALVE (CON PROTECCIÓN TRY-CATCH TOTAL)
-// ============================================================================
 object ValveSteamClient {
 
     private val httpSemaphore = Semaphore(10)
@@ -327,7 +310,7 @@ object ValveSteamClient {
                 requestMethod = "GET"
                 connectTimeout = 8000
                 readTimeout = 8000
-                setRequestProperty("User-Agent", "SteamDB-Android/1.0.5")
+                setRequestProperty("User-Agent", "SteamDB-Android/1.0.7")
                 setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
             }
             try {
@@ -840,9 +823,6 @@ object ValveSteamClient {
     }
 }
 
-// ============================================================================
-// VIEWMODEL GLOBAL CON COROUTINE EXCEPTION HANDLER ANTI-CRASH
-// ============================================================================
 class SdbMainViewModel : ViewModel() {
 
     private val safeHandler = CoroutineExceptionHandler { _, _ ->
@@ -997,16 +977,13 @@ class SdbMainViewModel : ViewModel() {
     }
 }
 
-// ============================================================================
-// ACTIVIDAD PRINCIPAL CON MENÚ DESPLEGABLE (DRAWER) Y PORTADA HOME
-// ============================================================================
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme(colorScheme = SteamBdDarkColors) {
-                SteamBdRootApp()
+            MaterialTheme(colorScheme = SteamDbDarkColors) {
+                SteamDbRootApp()
             }
         }
     }
@@ -1026,7 +1003,7 @@ enum class MainNavSection(
 }
 
 @Composable
-fun SteamBdRootApp(vm: SdbMainViewModel = viewModel()) {
+fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
     var currentSection by remember { mutableStateOf(MainNavSection.HOME) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -1072,7 +1049,7 @@ fun SteamBdRootApp(vm: SdbMainViewModel = viewModel()) {
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text("SteamDB", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
-                            Text("Cliente Nativo v1.0.5 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
+                            Text("Cliente Nativo v1.0.7 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
@@ -1276,15 +1253,15 @@ fun SteamBdRootApp(vm: SdbMainViewModel = viewModel()) {
                     FullScreenAppInspector(vm = vm, onBack = { vm.closeAppInspector() })
                 } else {
                     when (currentSection) {
-                        MainNavSection.HOME -> SteamBdHomePortalScreen(
+                        MainNavSection.HOME -> SteamDbHomePortalScreen(
                             vm = vm,
                             onNavigate = { target -> currentSection = target }
                         )
-                        MainNavSection.CHARTS -> SteamBdChartsTab(vm)
-                        MainNavSection.SALES -> SteamBdSalesTab(vm)
-                        MainNavSection.CALENDAR -> SteamBdCalendarTab(vm)
-                        MainNavSection.EVENTS -> SteamBdNextSalesTab()
-                        MainNavSection.CALC -> SteamBdCalculatorTab(vm)
+                        MainNavSection.CHARTS -> SteamDbChartsTab(vm)
+                        MainNavSection.SALES -> SteamDbSalesTab(vm)
+                        MainNavSection.CALENDAR -> SteamDbCalendarTab(vm)
+                        MainNavSection.EVENTS -> SteamDbNextSalesTab()
+                        MainNavSection.CALC -> SteamDbCalculatorTab(vm)
                     }
                 }
 
@@ -1309,10 +1286,10 @@ fun SteamBdRootApp(vm: SdbMainViewModel = viewModel()) {
 }
 
 // ============================================================================
-// PORTADA PRINCIPAL DE STEAMDB (HOME)
+// PORTADA PRINCIPAL CON BÚSQUEDA AUTOMÁTICA DEL PRÓXIMO EVENTO FUTURO
 // ============================================================================
 @Composable
-fun SteamBdHomePortalScreen(
+fun SteamDbHomePortalScreen(
     vm: SdbMainViewModel,
     onNavigate: (MainNavSection) -> Unit
 ) {
@@ -1331,10 +1308,11 @@ fun SteamBdHomePortalScreen(
         return
     }
 
-    val activeOrNextEvent = SteamSalesSchedule.officialEvents.firstOrNull { it.endDateMillis > nowMillis }
+    // Filtra exclusivamente eventos cuya fecha de inicio sea estrictamente mayor al momento actual
+    val nextFutureEvent = SteamSalesSchedule.officialEvents.firstOrNull { it.startDateMillis > nowMillis }
         ?: SteamSalesSchedule.officialEvents.first()
-    val isLiveNow = nowMillis in activeOrNextEvent.startDateMillis..activeOrNextEvent.endDateMillis
-    val targetMillis = if (isLiveNow) activeOrNextEvent.endDateMillis else activeOrNextEvent.startDateMillis
+
+    val targetMillis = nextFutureEvent.startDateMillis
     val remSec = ((targetMillis - nowMillis) / 1000L).coerceAtLeast(0L)
     val d = remSec / 86400
     val h = (remSec % 86400) / 3600
@@ -1384,14 +1362,14 @@ fun SteamBdHomePortalScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isLiveNow) "🔥 EVENTO EN CURSO EN STEAM" else "⏳ PRÓXIMA REBAJA DE STEAM",
+                                text = "⏳ TIEMPO RESTANTE PARA PRÓXIMO EVENTO",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = if (isLiveNow) SdbBrightGreen else SdbSaleBadgeText,
+                                color = SdbSaleBadgeText,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                text = activeOrNextEvent.name,
+                                text = nextFutureEvent.name,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
@@ -1399,7 +1377,7 @@ fun SteamBdHomePortalScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = activeOrNextEvent.dateRangeText,
+                                text = nextFutureEvent.dateRangeText,
                                 fontSize = 10.sp,
                                 color = SdbTextMuted
                             )
@@ -1590,9 +1568,6 @@ fun HomePortalTableBlock(
     }
 }
 
-// ============================================================================
-// SECCIÓN CHARTS CON SELECTOR TOP 25 / TOP 50 / TOP 100
-// ============================================================================
 @Composable
 fun SteamBdChartsTab(vm: SdbMainViewModel) {
     var subTab by remember { mutableIntStateOf(0) }
@@ -1717,7 +1692,7 @@ fun SteamBdChartsTab(vm: SdbMainViewModel) {
         }
 
         if (subTab == 0) {
-            itemsIndexed(visibleMostPlayed, key = { idx, g -> "chart_${idx}_${g.appId}" }) { index, game ->
+            itemsIndexed(visibleMostPlayed, key = { index, game -> "chart_${index}_${game.appId}" }) { index, game ->
                 val ratio = (game.currentPlayers.toFloat() / maxConcurrent.toFloat()).coerceIn(0.03f, 1f)
                 Column(
                     modifier = Modifier
@@ -1795,7 +1770,7 @@ fun SteamBdChartsTab(vm: SdbMainViewModel) {
                 }
             }
         } else {
-            itemsIndexed(vm.topWantedGames, key = { idx, g -> "wanted_${idx}_${g.appId}" }) { index, game ->
+            itemsIndexed(vm.topWantedGames, key = { index, game -> "wanted_${index}_${game.appId}" }) { index, game ->
                 SteamBdDenseGameRow(
                     rank = index + 1,
                     game = game,
@@ -1806,11 +1781,8 @@ fun SteamBdChartsTab(vm: SdbMainViewModel) {
     }
 }
 
-// ============================================================================
-// SECCIÓN NEXT STEAM SALES CON CONTADOR VINCULADO AL EVENTO REAL
-// ============================================================================
 @Composable
-fun SteamBdNextSalesTab() {
+fun SteamDbNextSalesTab() {
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
@@ -1821,9 +1793,8 @@ fun SteamBdNextSalesTab() {
     }
 
     val events = SteamSalesSchedule.officialEvents
-    val activeOrNext = events.firstOrNull { it.endDateMillis > nowMillis } ?: events.first()
-    val isLiveNow = nowMillis in activeOrNext.startDateMillis..activeOrNext.endDateMillis
-    val targetMillis = if (isLiveNow) activeOrNext.endDateMillis else activeOrNext.startDateMillis
+    val activeOrNext = events.firstOrNull { it.startDateMillis > nowMillis } ?: events.first()
+    val targetMillis = activeOrNext.startDateMillis
 
     val diffSec = ((targetMillis - nowMillis) / 1000L).coerceAtLeast(0L)
     val days = diffSec / 86400
@@ -1831,8 +1802,6 @@ fun SteamBdNextSalesTab() {
     val mins = (diffSec % 3600) / 60
     val secs = diffSec % 60
     val pulseOn = (secs % 2L) == 0L
-
-    val nextMajorSale = events.firstOrNull { it.category.contains("MAJOR") && it.startDateMillis > nowMillis }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1845,7 +1814,7 @@ fun SteamBdNextSalesTab() {
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.5.dp, if (isLiveNow) SdbBrightGreen else SdbBlue, RoundedCornerShape(10.dp))
+                    .border(1.5.dp, SdbBlue, RoundedCornerShape(10.dp))
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -1860,10 +1829,10 @@ fun SteamBdNextSalesTab() {
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = if (isLiveNow) "EVENTO DE STEAM EN CURSO AHORA MISMO" else "CUENTA ATRÁS EN VIVO PARA LA PRÓXIMA REBAJA",
+                            text = "CUENTA ATRÁS PARA PRÓXIMA REBAJA DE STEAM",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (isLiveNow) SdbBrightGreen else SdbBlue,
+                            color = SdbBlue,
                             fontFamily = FontFamily.Monospace
                         )
                     }
@@ -1895,41 +1864,11 @@ fun SteamBdNextSalesTab() {
                         CountdownBox(String.format("%02d", mins), "MINUTOS", false)
                         CountdownBox(String.format("%02d", secs), "SEGUNDOS", pulseOn)
                     }
-
-                    if (nextMajorSale != null && nextMajorSale.name != activeOrNext.name) {
-                        val majorDays = ((nextMajorSale.startDateMillis - nowMillis) / 86400000L).coerceAtLeast(1L)
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(SdbBg)
-                                .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
-                                .padding(8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Siguiente Gran Rebaja Estacional: ${nextMajorSale.name}",
-                                fontSize = 11.sp,
-                                color = SdbTextMain,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = "en $majorDays días",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = SdbSaleBadgeText,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
                 }
             }
         }
 
         items(events) { ev ->
-            val evLive = nowMillis in ev.startDateMillis..ev.endDateMillis
             val evDaysLeft = ((ev.startDateMillis - nowMillis) / 86400000L)
             val isMajor = ev.category.contains("MAJOR")
 
@@ -1940,11 +1879,7 @@ fun SteamBdNextSalesTab() {
                     .fillMaxWidth()
                     .border(
                         width = 1.dp,
-                        color = when {
-                            evLive -> SdbBrightGreen
-                            isMajor -> SdbSaleBadgeText.copy(alpha = 0.6f)
-                            else -> SdbBorder
-                        },
+                        color = if (isMajor) SdbSaleBadgeText.copy(alpha = 0.6f) else SdbBorder,
                         shape = RoundedCornerShape(8.dp)
                     )
             ) {
@@ -1954,16 +1889,16 @@ fun SteamBdNextSalesTab() {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Badge(containerColor = if (evLive) SdbBrightGreen else if (isMajor) SdbSaleBadgeBg else SdbPanel) {
+                        Badge(containerColor = if (isMajor) SdbSaleBadgeBg else SdbPanel) {
                             Text(
-                                text = if (evLive) "ACTIVO AHORA" else ev.category,
-                                color = if (evLive) Color.Black else if (isMajor) SdbSaleBadgeText else SdbBlue,
+                                text = ev.category,
+                                color = if (isMajor) SdbSaleBadgeText else SdbBlue,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp
                             )
                         }
                         Text(
-                            text = if (evLive) "Termina pronto" else if (evDaysLeft > 0) "Faltan $evDaysLeft días" else ev.dateRangeText,
+                            text = if (evDaysLeft > 0) "Faltan $evDaysLeft días" else ev.dateRangeText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = SdbBrightGreen,
@@ -2007,9 +1942,6 @@ fun CountdownBox(number: String, label: String, highlightBorder: Boolean) {
     }
 }
 
-// ============================================================================
-// AUTOCOMPLETADO INSTANTÁNEO
-// ============================================================================
 @Composable
 fun LiveAutocompleteDropdownOverlay(
     query: String,
@@ -2062,7 +1994,7 @@ fun LiveAutocompleteDropdownOverlay(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(vertical = 6.dp)
                 ) {
-                    itemsIndexed(suggestions, key = { idx, it -> "sug_${idx}_${it.appId}" }) { _, item ->
+                    itemsIndexed(suggestions, key = { index, item -> "sug_${index}_${item.appId}" }) { _, item ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2145,11 +2077,8 @@ fun HighlightedSearchTitle(fullTitle: String, searchQuery: String) {
     )
 }
 
-// ============================================================================
-// CALENDARIO VISUAL CON CARÁTULAS INTELIGENTES
-// ============================================================================
 @Composable
-fun SteamBdCalendarTab(vm: SdbMainViewModel) {
+fun SteamDbCalendarTab(vm: SdbMainViewModel) {
     if (vm.isLoading) {
         LoadingStateBox("Descargando pósters oficiales y fechas del calendario de Steam...")
         return
@@ -2177,7 +2106,7 @@ fun SteamBdCalendarTab(vm: SdbMainViewModel) {
             contentPadding = PaddingValues(bottom = 16.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            gridItemsIndexed(vm.upcomingCalendarGames, key = { idx, g -> "cal_${idx}_${g.appId}" }) { _, game ->
+            gridItemsIndexed(vm.upcomingCalendarGames, key = { index, game -> "cal_${index}_${game.appId}" }) { _, game ->
                 Card(
                     colors = CardDefaults.cardColors(containerColor = SdbHeader),
                     shape = RoundedCornerShape(8.dp),
@@ -2320,7 +2249,7 @@ fun LivePlayersBarChartCanvas(games: List<SdbGameSummary>, maxPlayers: Int) {
 }
 
 @Composable
-fun SteamBdSalesTab(vm: SdbMainViewModel) {
+fun SteamDbSalesTab(vm: SdbMainViewModel) {
     var minDiscount by remember { mutableIntStateOf(0) }
     var maxEuros by remember { mutableIntStateOf(999) }
 
@@ -2369,7 +2298,7 @@ fun SteamBdSalesTab(vm: SdbMainViewModel) {
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             itemsIndexed(filtered, key = { idx, g -> "sale_${idx}_${g.appId}" }) { idx, game ->
-                SteamBdDenseGameRow(
+                SteamDbDenseGameRow(
                     rank = idx + 1,
                     game = game,
                     onClick = { vm.openAppInspector(game.appId) }
@@ -2380,7 +2309,7 @@ fun SteamBdSalesTab(vm: SdbMainViewModel) {
 }
 
 @Composable
-fun SteamBdCalculatorTab(vm: SdbMainViewModel) {
+fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
     val totalNow = vm.calcCart.sumOf { it.finalCents } / 100.0
     val totalBase = vm.calcCart.sumOf { if (it.originalCents > 0) it.originalCents else it.finalCents } / 100.0
     val saved = (totalBase - totalNow).coerceAtLeast(0.0)
@@ -2446,7 +2375,7 @@ fun SteamBdCalculatorTab(vm: SdbMainViewModel) {
 }
 
 @Composable
-fun SteamBdDenseGameRow(
+fun SteamDbDenseGameRow(
     rank: Int,
     game: SdbGameSummary,
     onClick: () -> Unit
