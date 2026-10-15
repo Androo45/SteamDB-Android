@@ -191,7 +191,7 @@ object ValveSteamClient {
             requestMethod = "GET"
             connectTimeout = 9000
             readTimeout = 9000
-            setRequestProperty("User-Agent", "SteamDB-Native-Android/3.0")
+            setRequestProperty("User-Agent", "SteamDB-Native-Android/1.0.3")
             setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
         }
         return try {
