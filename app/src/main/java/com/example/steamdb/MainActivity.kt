@@ -12,12 +12,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -34,14 +36,18 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -49,10 +55,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -64,16 +73,12 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.sin
 
-// ============================================================================
-// PALETA DE COLORES EXACTA DE STEAMDB.INFO
-// ============================================================================
 val SdbBg = Color(0xFF161920)
 val SdbHeader = Color(0xFF1D212A)
 val SdbPanel = Color(0xFF212630)
 val SdbRowAlt = Color(0xFF1A1E26)
 val SdbBorder = Color(0xFF2E3543)
 val SdbBlue = Color(0xFF66C0F4)
-val SdbGreen = Color(0xFF5CBA47)
 val SdbBrightGreen = Color(0xFF00E676)
 val SdbSaleBadgeBg = Color(0xFF4C6B22)
 val SdbSaleBadgeText = Color(0xFFBEEE11)
@@ -95,9 +100,6 @@ private val SteamDbDarkColors = darkColorScheme(
     onSurfaceVariant = SdbTextMuted
 )
 
-// ============================================================================
-// MODELOS DE DATOS COMPLETOS
-// ============================================================================
 data class SdbGameSummary(
     val appId: Int,
     val name: String,
@@ -125,19 +127,16 @@ data class SdbFullAppData(
     val appType: String,
     val shortDesc: String,
     val supportedLanguages: String,
-    val website: String,
     val headerImage: String,
     val developers: List<String>,
     val publishers: List<String>,
     val releaseDate: String,
-    val comingSoon: Boolean,
     val isFree: Boolean,
     val initialFormatted: String,
     val finalFormatted: String,
     val finalCents: Int,
     val discountPct: Int,
     val metacritic: Int?,
-    val recommendations: Int?,
     val positiveReviews: Int,
     val negativeReviews: Int,
     val reviewScoreDesc: String,
@@ -157,12 +156,11 @@ data class SdbFullAppData(
 )
 
 data class SdbRegionalPrice(
-    val countryCode: String,
+    val regionKey: String,
     val currencyCode: String,
-    val countryName: String,
+    val currencyLabel: String,
     val flag: String,
     val localPriceFormatted: String,
-    val initialLocalFormatted: String,
     val discountPct: Int,
     val priceInEur: Double,
     val diffPercentageVsEur: Double
@@ -171,7 +169,6 @@ data class SdbRegionalPrice(
 data class SdbPatchNote(
     val gid: String,
     val title: String,
-    val author: String,
     val dateFormatted: String,
     val contentsClean: String,
     val feedLabel: String
@@ -181,22 +178,20 @@ data class SdbSaleEvent(
     val name: String,
     val category: String,
     val startDateMillis: Long,
-    val endDateMillis: Long,
     val dateRangeText: String,
     val description: String
 )
 
-// ============================================================================
-// MOTOR DE CONEXIÓN DIRECTA A LAS APIS OFICIALES DE VALVE / STEAM
-// ============================================================================
 object ValveSteamClient {
+
+    private val httpSemaphore = Semaphore(10)
 
     private fun getJson(urlStr: String): String {
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 9000
             readTimeout = 9000
-            setRequestProperty("User-Agent", "SteamDB-Native-Android/2.0")
+            setRequestProperty("User-Agent", "SteamDB-Native-Android/3.0")
             setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
         }
         return try {
@@ -218,7 +213,7 @@ object ValveSteamClient {
             .replace("&amp;", "&")
             .replace("&lt;", "<")
             .replace("&gt;", ">")
-            .replace(Regex("\\[/?[a-zA-Z0-9_=\\s]+\\]"), "") // Quitar BBCode de Steam
+            .replace(Regex("\\[/?[a-zA-Z0-9_=\\s]+\\]"), "")
             .trim()
     }
 
@@ -232,7 +227,40 @@ object ValveSteamClient {
         }
     }
 
-    // Obtiene las listas oficiales de Steam: Top Sellers, Specials, Coming Soon y New Releases
+    suspend fun fetchLiveSuggestions(query: String): List<SdbGameSummary> = withContext(Dispatchers.IO) {
+        val clean = query.trim()
+        if (clean.isEmpty()) return@withContext emptyList()
+        val encoded = URLEncoder.encode(clean, "UTF-8")
+        val raw = getJson("https://store.steampowered.com/api/storesearch/?term=$encoded&l=spanish&cc=es")
+        if (raw.isBlank()) return@withContext emptyList()
+
+        val items = JSONObject(raw).optJSONArray("items") ?: return@withContext emptyList()
+        val out = mutableListOf<SdbGameSummary>()
+
+        for (i in 0 until minOf(items.length(), 14)) {
+            val obj = items.optJSONObject(i) ?: continue
+            val id = obj.optInt("id", 0)
+            if (id <= 0) continue
+
+            val priceObj = obj.optJSONObject("price")
+            val initial = priceObj?.optInt("initial", 0) ?: 0
+            val finalP = priceObj?.optInt("final", 0) ?: 0
+            val disc = if (initial > 0 && finalP < initial) ((initial - finalP) * 100) / initial else 0
+
+            out.add(
+                SdbGameSummary(
+                    appId = id,
+                    name = obj.optString("name", "App $id"),
+                    capsuleUrl = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$id/header.jpg",
+                    originalCents = initial,
+                    finalCents = finalP,
+                    discountPct = disc
+                )
+            )
+        }
+        out
+    }
+
     suspend fun fetchStoreCategories(): Map<String, List<SdbGameSummary>> = withContext(Dispatchers.IO) {
         val raw = getJson("https://store.steampowered.com/api/featuredcategories?cc=es&l=spanish")
         if (raw.isBlank()) return@withContext emptyMap()
@@ -274,7 +302,6 @@ object ValveSteamClient {
         return out
     }
 
-    // Lista ampliada de los 25 juegos con mayor tráfico de Steam + Top Ventas actuales
     suspend fun fetchMostPlayedAndTrending(topSellersSeed: List<SdbGameSummary>): List<SdbGameSummary> =
         withContext(Dispatchers.IO) {
             val corePopularIds = listOf(
@@ -315,75 +342,38 @@ object ValveSteamClient {
                 }
             }
 
-            combinedMap.values.take(26).map { game ->
+            combinedMap.values.take(24).map { game ->
                 async {
-                    val live = fetchLivePlayers(game.appId)
-                    val peak24 = (live * (1.18 + (game.appId % 17) * 0.015)).toInt()
-                    game.copy(currentPlayers = live, peak24hEstimate = peak24)
+                    httpSemaphore.withPermit {
+                        val live = fetchLivePlayers(game.appId)
+                        val peak24 = (live * (1.18 + (game.appId % 17) * 0.015)).toInt()
+                        game.copy(currentPlayers = live, peak24hEstimate = peak24)
+                    }
                 }
             }.awaitAll().filter { it.currentPlayers > 0 }.sortedByDescending { it.currentPlayers }
         }
 
-    // Obtiene los Próximos Lanzamientos de Steam enriquecidos con su fecha exacta de salida
     suspend fun fetchUpcomingCalendar(seedList: List<SdbGameSummary>): List<SdbGameSummary> =
         withContext(Dispatchers.IO) {
-            seedList.take(16).map { item ->
+            seedList.take(20).map { item ->
                 async {
-                    val raw = getJson("https://store.steampowered.com/api/appdetails?appids=${item.appId}&cc=es&l=spanish")
-                    var releaseStr = "Próximamente"
-                    if (raw.isNotBlank()) {
-                        val data = JSONObject(raw).optJSONObject(item.appId.toString())?.optJSONObject("data")
-                        releaseStr = data?.optJSONObject("release_date")?.optString("date", "Próximamente") ?: "Próximamente"
+                    httpSemaphore.withPermit {
+                        val raw = getJson("https://store.steampowered.com/api/appdetails?appids=${item.appId}&cc=es&l=spanish&filters=basic,release_date")
+                        var releaseStr = "Próximamente"
+                        var headerImg = item.capsuleUrl
+                        if (raw.isNotBlank()) {
+                            val data = JSONObject(raw).optJSONObject(item.appId.toString())?.optJSONObject("data")
+                            if (data != null) {
+                                releaseStr = data.optJSONObject("release_date")?.optString("date", "Próximamente") ?: "Próximamente"
+                                headerImg = data.optString("header_image", item.capsuleUrl)
+                            }
+                        }
+                        item.copy(releaseDateText = releaseStr, capsuleUrl = headerImg)
                     }
-                    item.copy(releaseDateText = releaseStr)
                 }
             }.awaitAll()
         }
 
-    // Buscador global en toda la base de datos de Steam
-    suspend fun searchDatabase(query: String): List<SdbGameSummary> = withContext(Dispatchers.IO) {
-        val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val raw = getJson("https://store.steampowered.com/api/storesearch/?term=$encoded&l=spanish&cc=es")
-        if (raw.isBlank()) return@withContext emptyList()
-
-        val items = JSONObject(raw).optJSONArray("items") ?: return@withContext emptyList()
-        val list = mutableListOf<SdbGameSummary>()
-
-        for (i in 0 until items.length()) {
-            val obj = items.optJSONObject(i) ?: continue
-            val id = obj.optInt("id", 0)
-            if (id <= 0) continue
-
-            val priceObj = obj.optJSONObject("price")
-            val initial = priceObj?.optInt("initial", 0) ?: 0
-            val finalP = priceObj?.optInt("final", 0) ?: 0
-            val disc = if (initial > 0 && finalP < initial) ((initial - finalP) * 100) / initial else 0
-            val plat = obj.optJSONObject("platforms")
-
-            list.add(
-                SdbGameSummary(
-                    appId = id,
-                    name = obj.optString("name", "App $id"),
-                    capsuleUrl = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$id/header.jpg",
-                    originalCents = initial,
-                    finalCents = finalP,
-                    discountPct = disc,
-                    windows = plat?.optBoolean("windows", true) ?: true,
-                    mac = plat?.optBoolean("mac", false) ?: false,
-                    linux = plat?.optBoolean("linux", false) ?: false
-                )
-            )
-        }
-
-        list.take(15).map { game ->
-            async {
-                val players = fetchLivePlayers(game.appId)
-                game.copy(currentPlayers = players, peak24hEstimate = (players * 1.22).toInt())
-            }
-        }.awaitAll()
-    }
-
-    // Inspector Profundo de AppID: combina appdetails + GetNumberOfCurrentPlayers + appreviews
     suspend fun fetchFullAppInspector(appId: Int): SdbFullAppData? = withContext(Dispatchers.IO) {
         val detailsDeferred = async { getJson("https://store.steampowered.com/api/appdetails?appids=$appId&cc=es&l=spanish") }
         val playersDeferred = async { fetchLivePlayers(appId) }
@@ -459,12 +449,10 @@ object ValveSteamClient {
             appType = data.optString("type", "game").uppercase(),
             shortDesc = stripHtml(data.optString("short_description", "Sin descripción.")),
             supportedLanguages = langs,
-            website = data.optString("website", "Interno en Steam"),
             headerImage = data.optString("header_image", "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$appId/header.jpg"),
             developers = devs.ifEmpty { listOf("N/A") },
             publishers = pubs.ifEmpty { listOf("N/A") },
             releaseDate = relObj?.optString("date", "N/A") ?: "N/A",
-            comingSoon = relObj?.optBoolean("coming_soon", false) ?: false,
             isFree = isFree,
             initialFormatted = priceObj?.optString("initial_formatted", "").orEmpty(),
             finalFormatted = when {
@@ -475,7 +463,6 @@ object ValveSteamClient {
             finalCents = finalCents,
             discountPct = disc,
             metacritic = data.optJSONObject("metacritic")?.optInt("score"),
-            recommendations = data.optJSONObject("recommendations")?.optInt("total"),
             positiveReviews = posRev,
             negativeReviews = negRev,
             reviewScoreDesc = revDesc,
@@ -495,83 +482,113 @@ object ValveSteamClient {
         )
     }
 
-    // Consulta en tiempo real los precios en 16 regiones de Steam y calcula la matriz de ahorro
-    suspend fun fetchAll16RegionalPrices(appId: Int): List<SdbRegionalPrice> = withContext(Dispatchers.IO) {
-        data class RegionTarget(val cc: String, val currency: String, val country: String, val flag: String, val toEurRate: Double)
-
-        val matrix = listOf(
-            RegionTarget("es", "EUR", "Unión Europea (España)", "🇪🇺", 1.00),
-            RegionTarget("us", "USD", "Estados Unidos", "🇺🇸", 0.92),
-            RegionTarget("gb", "GBP", "Reino Unido", "🇬🇧", 1.19),
-            RegionTarget("ua", "UAH", "Ucrania", "🇺🇦", 0.0223),
-            RegionTarget("br", "BRL", "Brasil", "🇧🇷", 0.162),
-            RegionTarget("jp", "JPY", "Japón", "🇯🇵", 0.0061),
-            RegionTarget("pl", "PLN", "Polonia", "🇵🇱", 0.232),
-            RegionTarget("cl", "CLP", "Chile", "🇨🇱", 0.00096),
-            RegionTarget("co", "COP", "Colombia", "🇨🇴", 0.00022),
-            RegionTarget("mx", "MXN", "México", "🇲🇽", 0.046),
-            RegionTarget("in", "INR", "India", "🇮🇳", 0.0109),
-            RegionTarget("kr", "KRW", "Corea del Sur", "🇰🇷", 0.00067),
-            RegionTarget("ca", "CAD", "Canadá", "🇨🇦", 0.66),
-            RegionTarget("au", "AUD", "Australia", "🇦🇺", 0.60),
-            RegionTarget("ch", "CHF", "Suiza", "🇨🇭", 1.06),
-            RegionTarget("no", "NOK", "Noruega", "🇳🇴", 0.085)
+    // LAS 41 DIVISAS Y REGIONES OFICIALES DE STEAMDB.INFO
+    suspend fun fetchAll41SteamCurrencies(appId: Int): List<SdbRegionalPrice> = withContext(Dispatchers.IO) {
+        data class SteamCurrencySpec(
+            val cc: String,
+            val code: String,
+            val label: String,
+            val flag: String,
+            val rateToEur: Double
         )
 
-        val rawList = matrix.map { reg ->
-            async {
-                try {
-                    val json = getJson("https://store.steampowered.com/api/appdetails?appids=$appId&cc=${reg.cc}&filters=price_overview,basic")
-                    if (json.isBlank()) return@async null
-                    val appObj = JSONObject(json).optJSONObject(appId.toString()) ?: return@async null
-                    if (!appObj.optBoolean("success", false)) return@async null
-                    val data = appObj.optJSONObject("data") ?: return@async null
+        val all41Currencies = listOf(
+            SteamCurrencySpec("es", "EUR", "European Union Euro", "🇪🇺", 1.00),
+            SteamCurrencySpec("az", "USD_CIS", "CIS - U.S. Dollar", "🌐", 0.92),
+            SteamCurrencySpec("ar", "USD_LATAM", "LATAM - U.S. Dollar", "🇦🇷", 0.92),
+            SteamCurrencySpec("tr", "USD_MENA", "MENA - U.S. Dollar", "🇹🇷", 0.92),
+            SteamCurrencySpec("pk", "USD_SASIA", "SASIA - U.S. Dollar", "🇵🇰", 0.92),
+            SteamCurrencySpec("ua", "UAH", "Ukrainian Hryvnia", "🇺🇦", 0.0223),
+            SteamCurrencySpec("in", "INR", "Indian Rupee", "🇮🇳", 0.0109),
+            SteamCurrencySpec("id", "IDR", "Indonesian Rupiah", "🇮🇩", 0.000058),
+            SteamCurrencySpec("cn", "CNY", "Chinese Yuan", "🇨🇳", 0.128),
+            SteamCurrencySpec("br", "BRL", "Brazilian Real", "🇧🇷", 0.162),
+            SteamCurrencySpec("vn", "VND", "Vietnamese Dong", "🇻🇳", 0.000036),
+            SteamCurrencySpec("ph", "PHP", "Philippine Peso", "🇵🇭", 0.016),
+            SteamCurrencySpec("th", "THB", "Thai Baht", "🇹🇭", 0.027),
+            SteamCurrencySpec("my", "MYR", "Malaysian Ringgit", "🇲🇾", 0.21),
+            SteamCurrencySpec("cl", "CLP", "Chilean Peso", "🇨🇱", 0.00096),
+            SteamCurrencySpec("hk", "HKD", "Hong Kong Dollar", "🇭🇰", 0.118),
+            SteamCurrencySpec("kw", "KWD", "Kuwaiti Dinar", "🇰🇼", 3.00),
+            SteamCurrencySpec("tw", "TWD", "Taiwan Dollar", "🇹🇼", 0.0285),
+            SteamCurrencySpec("kr", "KRW", "South Korean Won", "🇰🇷", 0.00067),
+            SteamCurrencySpec("kz", "KZT", "Kazakhstani Tenge", "🇰🇿", 0.0019),
+            SteamCurrencySpec("sa", "SAR", "Saudi Riyal", "🇸🇦", 0.245),
+            SteamCurrencySpec("jp", "JPY", "Japanese Yen", "🇯🇵", 0.0061),
+            SteamCurrencySpec("pe", "PEN", "Peruvian Sol", "🇵🇪", 0.245),
+            SteamCurrencySpec("uy", "UYU", "Uruguayan Peso", "🇺🇾", 0.022),
+            SteamCurrencySpec("mx", "MXN", "Mexican Peso", "🇲🇽", 0.046),
+            SteamCurrencySpec("ca", "CAD", "Canadian Dollar", "🇨🇦", 0.66),
+            SteamCurrencySpec("nz", "NZD", "New Zealand Dollar", "🇳🇿", 0.55),
+            SteamCurrencySpec("ae", "AED", "U.A.E. Dirham", "🇦🇪", 0.25),
+            SteamCurrencySpec("za", "ZAR", "South African Rand", "🇿🇦", 0.051),
+            SteamCurrencySpec("qa", "QAR", "Qatari Riyal", "🇶🇦", 0.253),
+            SteamCurrencySpec("sg", "SGD", "Singapore Dollar", "🇸🇬", 0.69),
+            SteamCurrencySpec("co", "COP", "Colombian Peso", "🇨🇴", 0.00022),
+            SteamCurrencySpec("au", "AUD", "Australian Dollar", "🇦🇺", 0.60),
+            SteamCurrencySpec("cr", "CRC", "Costa Rican Colon", "🇨🇷", 0.0018),
+            SteamCurrencySpec("us", "USD", "U.S. Dollar", "🇺🇸", 0.92),
+            SteamCurrencySpec("gb", "GBP", "British Pound", "🇬🇧", 1.19),
+            SteamCurrencySpec("pl", "PLN", "Polish Zloty", "🇵🇱", 0.232),
+            SteamCurrencySpec("il", "ILS", "Israeli New Shekel", "🇮🇱", 0.25),
+            SteamCurrencySpec("ch", "CHF", "Swiss Franc", "🇨🇭", 1.06),
+            SteamCurrencySpec("no", "NOK", "Norwegian Krone", "🇳🇴", 0.085),
+            SteamCurrencySpec("ru", "RUB", "Russian Ruble", "🇷🇺", 0.0095)
+        )
 
-                    if (data.optBoolean("is_free", false)) {
-                        return@async SdbRegionalPrice(
-                            countryCode = reg.cc.uppercase(),
-                            currencyCode = reg.currency,
-                            countryName = reg.country,
-                            flag = reg.flag,
-                            localPriceFormatted = "Gratis",
-                            initialLocalFormatted = "",
-                            discountPct = 0,
-                            priceInEur = 0.0,
+        val fetched = all41Currencies.map { spec ->
+            async {
+                httpSemaphore.withPermit {
+                    try {
+                        val json = getJson("https://store.steampowered.com/api/appdetails?appids=$appId&cc=${spec.cc}&filters=price_overview,basic")
+                        if (json.isBlank()) return@withPermit null
+                        val appObj = JSONObject(json).optJSONObject(appId.toString()) ?: return@withPermit null
+                        if (!appObj.optBoolean("success", false)) return@withPermit null
+                        val data = appObj.optJSONObject("data") ?: return@withPermit null
+
+                        if (data.optBoolean("is_free", false)) {
+                            return@withPermit SdbRegionalPrice(
+                                regionKey = spec.cc.uppercase(),
+                                currencyCode = spec.code,
+                                currencyLabel = spec.label,
+                                flag = spec.flag,
+                                localPriceFormatted = "Gratis",
+                                discountPct = 0,
+                                priceInEur = 0.0,
+                                diffPercentageVsEur = 0.0
+                            )
+                        }
+
+                        val p = data.optJSONObject("price_overview") ?: return@withPermit null
+                        val finalUnits = p.optInt("final", 0) / 100.0
+                        val eurVal = finalUnits * spec.rateToEur
+
+                        SdbRegionalPrice(
+                            regionKey = spec.cc.uppercase(),
+                            currencyCode = p.optString("currency", spec.code),
+                            currencyLabel = spec.label,
+                            flag = spec.flag,
+                            localPriceFormatted = p.optString("final_formatted", "$finalUnits ${spec.code}"),
+                            discountPct = p.optInt("discount_percent", 0),
+                            priceInEur = eurVal,
                             diffPercentageVsEur = 0.0
                         )
+                    } catch (_: Exception) {
+                        null
                     }
-
-                    val p = data.optJSONObject("price_overview") ?: return@async null
-                    val finalUnits = p.optInt("final", 0) / 100.0
-                    val eurVal = finalUnits * reg.toEurRate
-
-                    SdbRegionalPrice(
-                        countryCode = reg.cc.uppercase(),
-                        currencyCode = p.optString("currency", reg.currency),
-                        countryName = reg.country,
-                        flag = reg.flag,
-                        localPriceFormatted = p.optString("final_formatted", "$finalUnits ${reg.currency}"),
-                        initialLocalFormatted = p.optString("initial_formatted", ""),
-                        discountPct = p.optInt("discount_percent", 0),
-                        priceInEur = eurVal,
-                        diffPercentageVsEur = 0.0
-                    )
-                } catch (_: Exception) {
-                    null
                 }
             }
         }.awaitAll().filterNotNull()
 
-        val baseEur = rawList.find { it.countryCode == "ES" }?.priceInEur
-            ?: rawList.maxOfOrNull { it.priceInEur } ?: 0.0
+        val baseEur = fetched.find { it.regionKey == "ES" }?.priceInEur
+            ?: fetched.maxOfOrNull { it.priceInEur } ?: 0.0
 
-        rawList.map { item ->
+        fetched.map { item ->
             val diff = if (baseEur > 0.0) ((item.priceInEur - baseEur) / baseEur) * 100.0 else 0.0
             item.copy(diffPercentageVsEur = diff)
         }.sortedBy { it.priceInEur }
     }
 
-    // Obtiene las Notas del Parche y Actualizaciones oficiales desde ISteamNews
     suspend fun fetchAppPatchNotes(appId: Int): List<SdbPatchNote> = withContext(Dispatchers.IO) {
         val raw = getJson("https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=$appId&count=10&maxlength=700")
         if (raw.isBlank()) return@withContext emptyList()
@@ -587,7 +604,6 @@ object ValveSteamClient {
                 SdbPatchNote(
                     gid = n.optString("gid", "$i"),
                     title = n.optString("title", "Actualización"),
-                    author = n.optString("author", "Valve / Developer").ifBlank { "Steam Official" },
                     dateFormatted = if (ts > 0) sdf.format(Date(ts)) else "Reciente",
                     contentsClean = stripHtml(n.optString("contents", "")),
                     feedLabel = n.optString("feedlabel", "Patch Notes")
@@ -598,14 +614,9 @@ object ValveSteamClient {
     }
 }
 
-// ============================================================================
-// VIEWMODEL CENTRAL DE LA APLICACIÓN
-// ============================================================================
 class SdbMainViewModel : ViewModel() {
 
     var isLoading by mutableStateOf(true)
-        private set
-    var errorMsg by mutableStateOf<String?>(null)
         private set
 
     var mostPlayedGames by mutableStateOf<List<SdbGameSummary>>(emptyList())
@@ -617,18 +628,17 @@ class SdbMainViewModel : ViewModel() {
     var upcomingCalendarGames by mutableStateOf<List<SdbGameSummary>>(emptyList())
         private set
 
-    // Buscador
-    var searchQuery by mutableStateOf("")
-    var isSearching by mutableStateOf(false)
+    var topSearchText by mutableStateOf("")
         private set
-    var searchResults by mutableStateOf<List<SdbGameSummary>>(emptyList())
+    var liveSuggestions by mutableStateOf<List<SdbGameSummary>>(emptyList())
         private set
+    var isLoadingSuggestions by mutableStateOf(false)
+        private set
+    private var debounceJob: Job? = null
 
-    // Calculadora
     var calcCart by mutableStateOf<List<SdbGameSummary>>(emptyList())
         private set
 
-    // Estado del Inspector Interno a Pantalla Completa (Pila de navegación para poder abrir DLCs)
     var inspectorAppData by mutableStateOf<SdbFullAppData?>(null)
         private set
     var inspectorPrices by mutableStateOf<List<SdbRegionalPrice>>(emptyList())
@@ -637,6 +647,8 @@ class SdbMainViewModel : ViewModel() {
         private set
     var isInspectorLoading by mutableStateOf(false)
         private set
+    var isLoadingPricesMatrix by mutableStateOf(false)
+        private set
     var isInspectorVisible by mutableStateOf(false)
         private set
 
@@ -644,10 +656,36 @@ class SdbMainViewModel : ViewModel() {
         refreshAllSteamData()
     }
 
+    fun onTopSearchQueryChanged(newValue: String) {
+        topSearchText = newValue
+        debounceJob?.cancel()
+
+        val clean = newValue.trim()
+        if (clean.isEmpty()) {
+            liveSuggestions = emptyList()
+            isLoadingSuggestions = false
+            return
+        }
+
+        debounceJob = viewModelScope.launch {
+            isLoadingSuggestions = true
+            delay(220L)
+            try {
+                liveSuggestions = ValveSteamClient.fetchLiveSuggestions(clean)
+            } finally {
+                isLoadingSuggestions = false
+            }
+        }
+    }
+
+    fun clearLiveSearch() {
+        topSearchText = ""
+        liveSuggestions = emptyList()
+    }
+
     fun refreshAllSteamData() {
         viewModelScope.launch {
             isLoading = true
-            errorMsg = null
             try {
                 val cats = ValveSteamClient.fetchStoreCategories()
                 val topSellersRaw = cats["top_sellers"].orEmpty()
@@ -674,49 +712,35 @@ class SdbMainViewModel : ViewModel() {
                 if (calcCart.isEmpty() && topWantedGames.isNotEmpty()) {
                     calcCart = topWantedGames.filter { !it.isFree }.take(4)
                 }
-            } catch (e: Exception) {
-                errorMsg = "Error de red con Steam API: ${e.localizedMessage}"
             } finally {
                 isLoading = false
             }
         }
     }
 
-    fun executeSearch(q: String) {
-        val clean = q.trim()
-        if (clean.isEmpty()) return
-        val directId = clean.toIntOrNull()
-        if (directId != null) {
-            openAppInspector(directId)
-            return
-        }
-        viewModelScope.launch {
-            isSearching = true
-            try {
-                searchResults = ValveSteamClient.searchDatabase(clean)
-            } finally {
-                isSearching = false
-            }
-        }
-    }
-
     fun openAppInspector(appId: Int) {
+        clearLiveSearch()
         viewModelScope.launch {
             isInspectorVisible = true
             isInspectorLoading = true
+            isLoadingPricesMatrix = true
             inspectorAppData = null
             inspectorPrices = emptyList()
             inspectorNews = emptyList()
+
             try {
                 val appDef = async { ValveSteamClient.fetchFullAppInspector(appId) }
-                val pricesDef = async { ValveSteamClient.fetchAll16RegionalPrices(appId) }
                 val newsDef = async { ValveSteamClient.fetchAppPatchNotes(appId) }
+                val pricesDef = async { ValveSteamClient.fetchAll41SteamCurrencies(appId) }
 
                 inspectorAppData = appDef.await()
-                inspectorPrices = pricesDef.await()
                 inspectorNews = newsDef.await()
+                isInspectorLoading = false
+
+                inspectorPrices = pricesDef.await()
             } finally {
                 isInspectorLoading = false
+                isLoadingPricesMatrix = false
             }
         }
     }
@@ -735,9 +759,6 @@ class SdbMainViewModel : ViewModel() {
     }
 }
 
-// ============================================================================
-// ACTIVIDAD PRINCIPAL Y ESTRUCTURA DE NAVEGACIÓN
-// ============================================================================
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -755,28 +776,45 @@ enum class MainNavTab(val title: String, val icon: androidx.compose.ui.graphics.
     SALES("Sales", Icons.Default.LocalOffer),
     CALENDAR("Calendario", Icons.Default.CalendarMonth),
     EVENTS("Next Sales", Icons.Default.Timer),
-    SEARCH("DB / Calc", Icons.Default.Search)
+    CALC("Calculator", Icons.Default.Calculate)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
     var currentTab by remember { mutableStateOf(MainNavTab.CHARTS) }
+    val focusManager = LocalFocusManager.current
 
-    // Si el inspector de artículo está abierto a pantalla completa, el botón Atrás del móvil vuelve a la lista
-    BackHandler(enabled = vm.isInspectorVisible) {
-        vm.closeAppInspector()
+    BackHandler(enabled = vm.isInspectorVisible || vm.topSearchText.isNotEmpty()) {
+        if (vm.topSearchText.isNotEmpty()) {
+            vm.clearLiveSearch()
+            focusManager.clearFocus()
+        } else {
+            vm.closeAppInspector()
+        }
     }
 
     Scaffold(
         topBar = {
-            if (!vm.isInspectorVisible) {
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = SdbHeader, shadowElevation = 6.dp) {
+                Column(modifier = Modifier.statusBarsPadding()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (vm.isInspectorVisible) {
+                            IconButton(
+                                onClick = { vm.closeAppInspector() },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                            }
+                            Spacer(Modifier.width(4.dp))
+                        } else {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(34.dp)
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(SdbPanel)
                                     .border(1.dp, SdbBlue, RoundedCornerShape(6.dp)),
@@ -784,20 +822,92 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                             ) {
                                 Text("DB", fontWeight = FontWeight.Black, fontSize = 13.sp, color = SdbBlue, fontFamily = FontFamily.Monospace)
                             }
-                            Spacer(Modifier.width(10.dp))
-                            Column {
-                                Text("SteamDB.info Native", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White)
-                                Text("100% Interno • Valve Store & Steamworks API", fontSize = 10.sp, color = SdbBrightGreen)
+                            Spacer(Modifier.width(8.dp))
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(SdbBg)
+                                .border(1.5.dp, if (vm.topSearchText.isNotEmpty()) SdbBlue else SdbBorder, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 10.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = SdbBlue,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (vm.topSearchText.isEmpty()) {
+                                        Text(
+                                            text = "Buscar juego o AppID (ej: des, stalker, 730)...",
+                                            color = SdbTextMuted,
+                                            fontSize = 13.sp,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    BasicTextField(
+                                        value = vm.topSearchText,
+                                        onValueChange = { vm.onTopSearchQueryChanged(it) },
+                                        singleLine = true,
+                                        textStyle = androidx.compose.ui.text.TextStyle(
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        cursorBrush = SolidColor(SdbBlue),
+                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                        keyboardActions = KeyboardActions(onSearch = {
+                                            focusManager.clearFocus()
+                                            val directId = vm.topSearchText.trim().toIntOrNull()
+                                            if (directId != null) {
+                                                vm.openAppInspector(directId)
+                                            } else if (vm.liveSuggestions.isNotEmpty()) {
+                                                vm.openAppInspector(vm.liveSuggestions.first().appId)
+                                            }
+                                        }),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                if (vm.isLoadingSuggestions) {
+                                    CircularProgressIndicator(
+                                        color = SdbBlue,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                }
+                                if (vm.topSearchText.isNotEmpty()) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Limpiar",
+                                        tint = SdbTextMuted,
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .clickable { vm.clearLiveSearch() }
+                                    )
+                                }
                             }
                         }
-                    },
-                    actions = {
-                        IconButton(onClick = { vm.refreshAllSteamData() }) {
-                            Icon(Icons.Default.Sync, contentDescription = "Refrescar", tint = SdbBlue)
+
+                        Spacer(Modifier.width(6.dp))
+                        IconButton(
+                            onClick = { vm.refreshAllSteamData() },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(Icons.Default.Sync, contentDescription = "Actualizar", tint = SdbBlue)
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = SdbHeader)
-                )
+                    }
+                }
             }
         },
         bottomBar = {
@@ -806,7 +916,10 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                     MainNavTab.entries.forEach { tab ->
                         NavigationBarItem(
                             selected = currentTab == tab,
-                            onClick = { currentTab = tab },
+                            onClick = {
+                                vm.clearLiveSearch()
+                                currentTab = tab
+                            },
                             icon = { Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(20.dp)) },
                             label = { Text(tab.title, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) },
                             colors = NavigationBarItemDefaults.colors(
@@ -835,17 +948,284 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                     MainNavTab.CHARTS -> SteamDbChartsTab(vm)
                     MainNavTab.SALES -> SteamDbSalesTab(vm)
                     MainNavTab.CALENDAR -> SteamDbCalendarTab(vm)
-                    MainNavTab.EVENTS -> SteamDbNextSalesTab(vm)
-                    MainNavTab.SEARCH -> SteamDbSearchAndCalcTab(vm)
+                    MainNavTab.EVENTS -> SteamDbNextSalesTab()
+                    MainNavTab.CALC -> SteamDbCalculatorTab(vm)
+                }
+            }
+
+            if (vm.topSearchText.trim().isNotEmpty()) {
+                LiveAutocompleteDropdownOverlay(
+                    query = vm.topSearchText.trim(),
+                    suggestions = vm.liveSuggestions,
+                    isLoading = vm.isLoadingSuggestions,
+                    onSelectGame = { appId ->
+                        focusManager.clearFocus()
+                        vm.openAppInspector(appId)
+                    },
+                    onDismiss = {
+                        focusManager.clearFocus()
+                        vm.clearLiveSearch()
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LiveAutocompleteDropdownOverlay(
+    query: String,
+    suggestions: List<SdbGameSummary>,
+    isLoading: Boolean,
+    onSelectGame: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.72f))
+            .clickable { onDismiss() }
+    ) {
+        Surface(
+            color = Color(0xFF12151B),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 520.dp)
+                .border(1.dp, SdbBorder)
+                .clickable(enabled = false) {}
+        ) {
+            if (suggestions.isEmpty() && isLoading) {
+                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Text("Buscando coincidencias para \"$query\"...", color = SdbTextMuted, fontSize = 13.sp)
+                }
+            } else if (suggestions.isEmpty()) {
+                val directAppId = query.toIntOrNull()
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    if (directAppId != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(SdbPanel)
+                                .clickable { onSelectGame(directAppId) }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Terminal, contentDescription = null, tint = SdbBlue)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Abrir directamente AppID $directAppId", color = SdbBlue, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Text("Sin sugerencias para \"$query\"", color = SdbTextMuted, fontSize = 13.sp)
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 6.dp)
+                ) {
+                    items(suggestions, key = { it.appId }) { item ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectGame(item.appId) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AsyncImage(
+                                model = item.capsuleUrl,
+                                contentDescription = item.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .width(102.dp)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(SdbPanel)
+                                    .border(0.5.dp, SdbBorder, RoundedCornerShape(3.dp))
+                            )
+
+                            Spacer(Modifier.width(14.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                HighlightedSearchTitle(
+                                    fullTitle = item.name,
+                                    searchQuery = query
+                                )
+                                Text(
+                                    text = "AppID ${item.appId} • ${item.formattedFinal}",
+                                    fontSize = 11.sp,
+                                    color = SdbTextMuted,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-// ============================================================================
-// PESTAÑA 1: CHARTS (JUEGOS MÁS JUGADOS CON GRÁFICOS + MÁS DESEADOS)
-// ============================================================================
+@Composable
+fun HighlightedSearchTitle(fullTitle: String, searchQuery: String) {
+    val annotated = remember(fullTitle, searchQuery) {
+        buildAnnotatedString {
+            if (searchQuery.isBlank()) {
+                append(fullTitle)
+                return@buildAnnotatedString
+            }
+            val lowerTitle = fullTitle.lowercase()
+            val lowerQuery = searchQuery.lowercase()
+            var startIndex = 0
+
+            while (startIndex < fullTitle.length) {
+                val matchIndex = lowerTitle.indexOf(lowerQuery, startIndex)
+                if (matchIndex == -1) {
+                    withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Medium)) {
+                        append(fullTitle.substring(startIndex))
+                    }
+                    break
+                }
+                if (matchIndex > startIndex) {
+                    withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Medium)) {
+                        append(fullTitle.substring(startIndex, matchIndex))
+                    }
+                }
+                withStyle(SpanStyle(color = SdbBlue, fontWeight = FontWeight.ExtraBold)) {
+                    append(fullTitle.substring(matchIndex, matchIndex + searchQuery.length))
+                }
+                startIndex = matchIndex + searchQuery.length
+            }
+        }
+    }
+
+    Text(
+        text = annotated,
+        fontSize = 16.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+@Composable
+fun SteamDbCalendarTab(vm: SdbMainViewModel) {
+    if (vm.isLoading) {
+        LoadingStateBox("Descargando pósters oficiales y fechas del calendario de Steam...")
+        return
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "STEAM RELEASE CALENDAR • PRÓXIMOS LANZAMIENTOS",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SdbBlue,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    text = "Toca cualquier carátula para abrir su ficha técnica y precios por país",
+                    fontSize = 11.sp,
+                    color = SdbTextMuted
+                )
+            }
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(vm.upcomingCalendarGames, key = { it.appId }) { game ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SdbHeader),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
+                        .clickable { vm.openAppInspector(game.appId) }
+                ) {
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(106.dp)
+                        ) {
+                            AsyncImage(
+                                model = game.capsuleUrl,
+                                contentDescription = game.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(Color.Black.copy(alpha = 0.1f), Color.Black.copy(alpha = 0.85f))
+                                        )
+                                    )
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(6.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF0E131A).copy(alpha = 0.92f))
+                                    .border(1.dp, SdbBlue, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = game.releaseDateText.ifBlank { "Próximamente" }.uppercase(),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = SdbBlue,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+
+                            Text(
+                                text = "ID ${game.appId}",
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = SdbTextMuted,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(6.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = game.name,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = if (game.finalCents > 0) "Reserva: ${game.formattedFinal}" else "Próximo estreno en Steam",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (game.finalCents > 0) SdbSaleBadgeText else SdbBrightGreen
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun SteamDbChartsTab(vm: SdbMainViewModel) {
     var subTab by remember { mutableIntStateOf(0) }
@@ -864,7 +1244,6 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Gráfico vectorial superior de actividad en tiempo real
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = SdbHeader),
@@ -888,7 +1267,6 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Gráfica de barras / curva en Canvas con los 10 juegos más jugados del momento
                     val top10 = vm.mostPlayedGames.take(10)
                     if (top10.isNotEmpty()) {
                         LivePlayersBarChartCanvas(games = top10, maxPlayers = maxConcurrent)
@@ -897,7 +1275,6 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
             }
         }
 
-        // Selector: Más Jugados Diariamente vs Más Deseados / Populares
         item {
             Row(
                 modifier = Modifier
@@ -907,7 +1284,7 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
                     .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
                     .padding(3.dp)
             ) {
-                val titles = listOf("Más Jugados (Live Charts)", "Más Deseados / Trending")
+                val titles = listOf("Más Jugados (Live Charts)", "Más Deseados / Populares")
                 titles.forEachIndexed { idx, label ->
                     val active = subTab == idx
                     Box(
@@ -930,7 +1307,6 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
             }
         }
 
-        // Cabecera de tabla densa estilo SteamDB
         item {
             Row(
                 modifier = Modifier
@@ -1000,7 +1376,6 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
                         )
                     }
                     Spacer(Modifier.height(5.dp))
-                    // Barra gráfica proporcional integrada en cada fila
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1044,7 +1419,6 @@ fun LivePlayersBarChartCanvas(games: List<SdbGameSummary>, maxPlayers: Int) {
             val spacing = 10.dp.toPx()
             val barWidth = (size.width - spacing * (barCount - 1)) / barCount
 
-            // Líneas guía horizontales
             for (i in 0..3) {
                 val y = size.height * (i / 3f)
                 drawLine(
@@ -1055,7 +1429,6 @@ fun LivePlayersBarChartCanvas(games: List<SdbGameSummary>, maxPlayers: Int) {
                 )
             }
 
-            // Barras de jugadores concurrentes y línea de pico 24h
             val peakPath = Path()
             games.forEachIndexed { idx, g ->
                 val ratio = (g.currentPlayers.toFloat() / maxPlayers.toFloat()).coerceIn(0.05f, 1f)
@@ -1083,16 +1456,13 @@ fun LivePlayersBarChartCanvas(games: List<SdbGameSummary>, maxPlayers: Int) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Top 10 por volumen de jugadores en vivo (Toca cualquier fila abajo para abrir su ficha y precios por país)",
+            text = "Top 10 en vivo • Toca cualquier juego para inspeccionar sus 41 divisas de Steam",
             fontSize = 10.sp,
             color = SdbTextMuted
         )
     }
 }
 
-// ============================================================================
-// PESTAÑA 2: SALES (EXPLORADOR DE OFERTAS ACTIVAS ESTILO STEAMDB)
-// ============================================================================
 @Composable
 fun SteamDbSalesTab(vm: SdbMainViewModel) {
     var minDiscount by remember { mutableIntStateOf(0) }
@@ -1153,103 +1523,8 @@ fun SteamDbSalesTab(vm: SdbMainViewModel) {
     }
 }
 
-// ============================================================================
-// PESTAÑA 3: CALENDARIO DE PRÓXIMOS LANZAMIENTOS DE STEAM
-// ============================================================================
 @Composable
-fun SteamDbCalendarTab(vm: SdbMainViewModel) {
-    if (vm.isLoading) {
-        LoadingStateBox("Cargando calendario de próximos lanzamientos de Steam...")
-        return
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SdbHeader),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("RELEASE CALENDAR • PRÓXIMOS LANZAMIENTOS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Juegos registrados en el feed oficial 'Coming Soon' de Steam con sus fechas previstas de estreno. Pulsa cualquiera para inspeccionar sus metadatos.",
-                        fontSize = 12.sp,
-                        color = SdbTextMuted
-                    )
-                }
-            }
-        }
-
-        itemsIndexed(vm.upcomingCalendarGames, key = { _, g -> g.appId }) { index, game ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(if (index % 2 == 0) SdbHeader else SdbRowAlt)
-                    .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
-                    .clickable { vm.openAppInspector(game.appId) }
-                    .padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Insignia de fecha estilo calendario SteamDB
-                Column(
-                    modifier = Modifier
-                        .width(86.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(SdbPanel)
-                        .border(1.dp, SdbBlue.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                        .padding(vertical = 8.dp, horizontal = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(Icons.Default.Event, contentDescription = null, tint = SdbBlue, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = game.releaseDateText.ifBlank { "Próximamente" },
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        maxLines = 2
-                    )
-                }
-
-                Spacer(Modifier.width(10.dp))
-
-                AsyncImage(
-                    model = game.capsuleUrl,
-                    contentDescription = game.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.width(78.dp).height(42.dp).clip(RoundedCornerShape(4.dp))
-                )
-
-                Spacer(Modifier.width(10.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(game.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("AppID: ${game.appId}", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = SdbBlue)
-                    Text(
-                        text = if (game.finalCents > 0) "Reserva: ${game.formattedFinal}" else "Precio por anunciar /Wishlist",
-                        fontSize = 11.sp,
-                        color = SdbSaleBadgeText
-                    )
-                }
-
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = SdbTextMuted)
-            }
-        }
-    }
-}
-
-// ============================================================================
-// PESTAÑA 4: NEXT STEAM SALES & EVENTS (CUENTA ATRÁS EN VIVO)
-// ============================================================================
-@Composable
-fun SteamDbNextSalesTab(vm: SdbMainViewModel) {
+fun SteamDbNextSalesTab() {
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
@@ -1259,64 +1534,56 @@ fun SteamDbNextSalesTab(vm: SdbMainViewModel) {
         }
     }
 
-    // Calendario completo de Eventos Oficiales y Grandes Rebajas Estacionales de Steam
     val events = remember {
         listOf(
-            SdbSaleEvent(
-                name = "Steam Next Fest (Edición Octubre)",
-                category = "FESTIVAL DE DEMOS",
-                startDateMillis = 1760374800000L, // Oct 2025/2026 window
-                endDateMillis = 1760979600000L,
-                dateRangeText = "Octubre (7 días de demos jugables)",
-                description = "Cientos de demos gratuitas de próximos lanzamientos y retransmisiones en directo de desarrolladores."
-            ),
             SdbSaleEvent(
                 name = "Steam Scream Fest (Halloween Sale)",
                 category = "FESTIVAL TEMÁTICO",
                 startDateMillis = 1761584400000L,
-                endDateMillis = 1762189200000L,
                 dateRangeText = "Finales de Octubre - Principios de Noviembre",
-                description = "Descuentos especiales en juegos de terror, supervivencia, misterio y eventos de Halloween."
+                description = "Descuentos especiales en juegos de terror, supervivencia oscura y eventos especiales de Halloween."
             ),
             SdbSaleEvent(
                 name = "Steam Autumn Sale (Gran Rebaja de Otoño)",
                 category = "MAJOR SEASONAL SALE",
                 startDateMillis = 1764176400000L,
-                endDateMillis = 1764781200000L,
-                dateRangeText = "Finales de Noviembre - Diciembre (Nominaciones Steam Awards)",
-                description = "Una de las 4 grandes rebajas anuales de Steam junto con las nominaciones a los Premios Steam."
+                dateRangeText = "Finales de Noviembre - Diciembre",
+                description = "Una de las 4 grandes rebajas estacionales de Steam junto con las nominaciones a los Steam Awards."
             ),
             SdbSaleEvent(
                 name = "Steam Winter Sale (Gran Rebaja de Invierno)",
                 category = "MAJOR SEASONAL SALE",
                 startDateMillis = 1766077200000L,
-                endDateMillis = 1767373200000L,
                 dateRangeText = "Diciembre - Enero (2 semanas completas)",
-                description = "El mayor evento de ofertas del año en todo el catálogo de Steam, cromos de invierno y votaciones finales."
+                description = "El mayor evento de ofertas del año en todo el catálogo de Steam."
+            ),
+            SdbSaleEvent(
+                name = "Steam Next Fest (Edición Febrero)",
+                category = "FESTIVAL DE DEMOS",
+                startDateMillis = 1770656400000L,
+                dateRangeText = "Febrero (7 días de demos gratuitas)",
+                description = "Cientos de demos jugables de próximos lanzamientos sin coste."
             ),
             SdbSaleEvent(
                 name = "Steam Spring Sale (Gran Rebaja de Primavera)",
                 category = "MAJOR SEASONAL SALE",
                 startDateMillis = 1773421200000L,
-                endDateMillis = 1774026000000L,
                 dateRangeText = "Mediados de Marzo",
-                description = "Rebaja estacional de primavera con miles de títulos al mínimo histórico."
+                description = "Rebaja estacional de primavera en miles de títulos del catálogo."
             ),
             SdbSaleEvent(
                 name = "Steam Summer Sale (Gran Rebaja de Verano)",
                 category = "MAJOR SEASONAL SALE",
                 startDateMillis = 1782406800000L,
-                endDateMillis = 1783616400000L,
                 dateRangeText = "Finales de Junio - Julio",
-                description = "Evento estival masivo con descuentos en todo el catálogo, insignias y ofertas destacadas."
+                description = "Gran rebaja anual de verano con descuentos masivos."
             )
         )
     }
 
-    // Calculamos dinámicamente una cuenta atrás perpetua hacia el próximo evento
-    val nextMajorTarget = events.firstOrNull { it.startDateMillis > nowMillis }?.startDateMillis
-        ?: (nowMillis + 14L * 24L * 3600L * 1000L)
-    val diffSec = ((nextMajorTarget - nowMillis) / 1000L).coerceAtLeast(0L)
+    val nextTarget = events.firstOrNull { it.startDateMillis > nowMillis }?.startDateMillis
+        ?: (nowMillis + 12L * 24L * 3600L * 1000L)
+    val diffSec = ((nextTarget - nowMillis) / 1000L).coerceAtLeast(0L)
     val days = diffSec / 86400
     val hours = (diffSec % 86400) / 3600
     val mins = (diffSec % 3600) / 60
@@ -1339,7 +1606,7 @@ fun SteamDbNextSalesTab(vm: SdbMainViewModel) {
                 ) {
                     Text("WHEN IS THE NEXT STEAM SALE?", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(4.dp))
-                    Text("Cuenta atrás en vivo para el próximo gran evento", fontSize = 13.sp, color = SdbTextMain)
+                    Text("Cuenta atrás en directo para el próximo evento de rebajas", fontSize = 13.sp, color = SdbTextMain)
                     Spacer(Modifier.height(12.dp))
 
                     Row(
@@ -1406,14 +1673,11 @@ fun CountdownBox(number: String, label: String) {
     }
 }
 
-// ============================================================================
-// PESTAÑA 5: BUSCADOR DE BASE DE DATOS + CALCULADORA DE CUENTA
-// ============================================================================
 @Composable
-fun SteamDbSearchAndCalcTab(vm: SdbMainViewModel) {
-    val focusManager = LocalFocusManager.current
+fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
     val totalNow = vm.calcCart.sumOf { it.finalCents } / 100.0
     val totalBase = vm.calcCart.sumOf { if (it.originalCents > 0) it.originalCents else it.finalCents } / 100.0
+    val saved = (totalBase - totalNow).coerceAtLeast(0.0)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1426,110 +1690,55 @@ fun SteamDbSearchAndCalcTab(vm: SdbMainViewModel) {
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("DATABASE SEARCH • BUSCADOR POR NOMBRE O APPID", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("STEAMDB CALCULATOR • VALORACIÓN DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = vm.searchQuery,
-                        onValueChange = { vm.searchQuery = it },
-                        placeholder = { Text("Ej: Stalker, Diablo, 730, 1091500...", fontSize = 13.sp) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SdbBlue) },
-                        trailingIcon = {
-                            if (vm.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { vm.searchQuery = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = null)
-                                }
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = {
-                            focusManager.clearFocus()
-                            vm.executeSearch(vm.searchQuery)
-                        })
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Button(
-                        onClick = {
-                            focusManager.clearFocus()
-                            vm.executeSearch(vm.searchQuery)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = SdbBlue)
-                    ) {
-                        Text("Buscar en Base de Datos / Abrir AppID", fontWeight = FontWeight.ExtraBold)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text("Valor Actual con Rebajas", fontSize = 11.sp, color = SdbTextMuted)
+                            Text(String.format(Locale("es", "ES"), "%.2f €", totalNow), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("PVP Base (Ahorro: ${String.format(Locale("es", "ES"), "%.2f €", saved)})", fontSize = 11.sp, color = SdbTextMuted)
+                            Text(String.format(Locale("es", "ES"), "%.2f €", totalBase), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                        }
                     }
+                    Spacer(Modifier.height(6.dp))
+                    Text("Usa el buscador superior o el icono de carrito dentro de cualquier juego para añadir o quitar títulos.", fontSize = 11.sp, color = SdbTextMuted)
                 }
             }
         }
 
-        if (vm.isSearching) {
-            item { LoadingStateBox("Buscando paquetes en los servidores de Steam...") }
-        } else if (vm.searchResults.isNotEmpty()) {
-            item {
-                Text("RESULTADOS DE BÚSQUEDA (${vm.searchResults.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
-            }
-            itemsIndexed(vm.searchResults, key = { _, g -> g.appId }) { idx, game ->
-                SteamDbDenseGameRow(
-                    rank = idx + 1,
-                    game = game,
-                    onClick = { vm.openAppInspector(game.appId) }
-                )
-            }
-        }
-
-        // Calculadora de valor de colección integrada
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SdbHeader),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
+        itemsIndexed(vm.calcCart, key = { _, g -> g.appId }) { idx, item ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(if (idx % 2 == 0) SdbHeader else SdbRowAlt, RoundedCornerShape(6.dp))
+                    .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
+                    .clickable { vm.openAppInspector(item.appId) }
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("STEAMDB CALCULATOR • VALOR DE LISTA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
-                    Spacer(Modifier.height(6.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("Valor en Oferta Actual", fontSize = 11.sp, color = SdbTextMuted)
-                            Text(String.format(Locale("es", "ES"), "%.2f €", totalNow), fontSize = 20.sp, fontWeight = FontWeight.Black, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Precio Base sin Descuento", fontSize = 11.sp, color = SdbTextMuted)
-                            Text(String.format(Locale("es", "ES"), "%.2f €", totalBase), fontSize = 20.sp, fontWeight = FontWeight.Black, color = SdbBlue, fontFamily = FontFamily.Monospace)
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    vm.calcCart.forEach { item ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 3.dp)
-                                .background(SdbPanel, RoundedCornerShape(4.dp))
-                                .clickable { vm.openAppInspector(item.appId) }
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("${item.name} (${item.appId})", fontSize = 12.sp, color = Color.White, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(item.formattedFinal, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
-                            IconButton(onClick = { vm.toggleCalculatorItem(item) }, modifier = Modifier.size(26.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = null, tint = SdbRed, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
+                AsyncImage(
+                    model = item.capsuleUrl,
+                    contentDescription = item.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.width(72.dp).height(34.dp).clip(RoundedCornerShape(4.dp))
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(item.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("AppID ${item.appId}", fontSize = 10.sp, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                }
+                Text(item.formattedFinal, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
+                IconButton(onClick = { vm.toggleCalculatorItem(item) }) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = "Quitar", tint = SdbRed)
                 }
             }
         }
     }
 }
 
-// ============================================================================
-// FILA DENSA ESTILO TABLA STEAMDB.INFO
-// ============================================================================
 @Composable
 fun SteamDbDenseGameRow(
     rank: Int,
@@ -1607,10 +1816,6 @@ fun SteamDbDenseGameRow(
     }
 }
 
-// ============================================================================
-// PÁGINA INTERNA COMPLETA DE UN ARTÍCULO (100% INTERNA, 6 PESTAÑAS STEAMDB)
-// ============================================================================
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullScreenAppInspector(
     vm: SdbMainViewModel,
@@ -1620,72 +1825,19 @@ fun FullScreenAppInspector(
     val numFmt = remember { NumberFormat.getIntegerInstance(Locale("es", "ES")) }
 
     Column(modifier = Modifier.fillMaxSize().background(SdbBg)) {
-        // Barra superior fija con retorno interno
-        TopAppBar(
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
-                }
-            },
-            title = {
-                val app = vm.inspectorAppData
-                Column {
-                    Text(
-                        text = app?.name ?: "Inspeccionando AppID...",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = if (app != null) "AppID: ${app.appId} • ${app.appType} • Datos 100% Internos" else "Conectando con Steam API...",
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = SdbBlue
-                    )
-                }
-            },
-            actions = {
-                vm.inspectorAppData?.let { app ->
-                    IconButton(onClick = {
-                        vm.toggleCalculatorItem(
-                            SdbGameSummary(
-                                appId = app.appId,
-                                name = app.name,
-                                capsuleUrl = app.headerImage,
-                                originalCents = app.finalCents,
-                                finalCents = app.finalCents,
-                                discountPct = app.discountPct
-                            )
-                        )
-                    }) {
-                        val inCart = vm.calcCart.any { it.appId == app.appId }
-                        Icon(
-                            imageVector = if (inCart) Icons.Default.CheckCircle else Icons.Default.AddShoppingCart,
-                            contentDescription = "Añadir a calculadora",
-                            tint = if (inCart) SdbBrightGreen else SdbSaleBadgeText
-                        )
-                    }
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = SdbHeader)
-        )
-
         if (vm.isInspectorLoading && vm.inspectorAppData == null) {
-            LoadingStateBox("Consultando 16 regiones de precios, jugadores en vivo, DLCs y notas de parche en Steam...")
+            LoadingStateBox("Inspeccionando metadatos del paquete y consultando las 41 divisas oficiales de Steam...")
             return@Column
         }
 
         val app = vm.inspectorAppData
         if (app == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Button(onClick = onBack) { Text("No se pudo leer este paquete. Volver") }
+                Button(onClick = onBack) { Text("Error al leer el AppID. Volver") }
             }
             return@Column
         }
 
-        // Cabecera resumen estilo SteamDB con contadores en tiempo real
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1697,24 +1849,51 @@ fun FullScreenAppInspector(
                 model = app.headerImage,
                 contentDescription = app.name,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.width(115.dp).height(54.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
+                modifier = Modifier
+                    .width(110.dp)
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
             )
             Spacer(Modifier.width(10.dp))
-            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween) {
-                StatCounterBox("IN-GAME", numFmt.format(app.currentPlayers), SdbBrightGreen)
-                StatCounterBox("24H PEAK", numFmt.format(app.peakTodayEstimate), SdbBlue)
-                StatCounterBox("PRECIO ES", app.finalFormatted, SdbSaleBadgeText)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(app.name, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("AppID ${app.appId} • ${app.appType} • ${app.releaseDate}", fontSize = 10.sp, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                Spacer(Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    StatCounterBox("IN-GAME", numFmt.format(app.currentPlayers), SdbBrightGreen)
+                    StatCounterBox("24H PEAK", numFmt.format(app.peakTodayEstimate), SdbBlue)
+                    StatCounterBox("ESPAÑA", app.finalFormatted, SdbSaleBadgeText)
+                }
+            }
+            IconButton(onClick = {
+                vm.toggleCalculatorItem(
+                    SdbGameSummary(
+                        appId = app.appId,
+                        name = app.name,
+                        capsuleUrl = app.headerImage,
+                        originalCents = app.finalCents,
+                        finalCents = app.finalCents,
+                        discountPct = app.discountPct
+                    )
+                )
+            }) {
+                val inCart = vm.calcCart.any { it.appId == app.appId }
+                Icon(
+                    imageVector = if (inCart) Icons.Default.CheckCircle else Icons.Default.AddShoppingCart,
+                    contentDescription = null,
+                    tint = if (inCart) SdbBrightGreen else SdbSaleBadgeText
+                )
             }
         }
 
-        // Menú horizontal de pestañas idéntico a la ficha de SteamDB
         val tabs = listOf(
-            "Prices (${vm.inspectorPrices.size})",
+            "Store Prices (${vm.inspectorPrices.size}/41)",
             "Charts",
             "App Info",
             "DLCs (${app.dlcAppIds.size})",
             "Patch Notes",
-            "Media (${app.screenshots.size})"
+            "Screenshots (${app.screenshots.size})"
         )
 
         ScrollableTabRow(
@@ -1739,10 +1918,9 @@ fun FullScreenAppInspector(
             }
         }
 
-        // Contenido interno de cada pestaña
         Box(modifier = Modifier.fillMaxSize()) {
             when (activeTab) {
-                0 -> InspectorPricesTab(prices = vm.inspectorPrices, baseEurFormatted = app.finalFormatted)
+                0 -> InspectorPricesTab(prices = vm.inspectorPrices, isLoadingPrices = vm.isLoadingPricesMatrix)
                 1 -> InspectorChartsTab(app = app)
                 2 -> InspectorInformationTab(app = app)
                 3 -> InspectorDlcsAndPackagesTab(app = app, onOpenDlc = { dlcId -> vm.openAppInspector(dlcId) })
@@ -1755,77 +1933,48 @@ fun FullScreenAppInspector(
 
 @Composable
 fun StatCounterBox(label: String, value: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(horizontalAlignment = Alignment.Start) {
         Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, fontFamily = FontFamily.Monospace)
-        Text(value, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = color, fontFamily = FontFamily.Monospace)
+        Text(value, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = color, fontFamily = FontFamily.Monospace)
     }
 }
 
-// ============================================================================
-// SUB-PESTAÑA 1 DEL INSPECTOR: TABLA COMPLETA DE PRECIOS POR REGIÓN (16 DIVISAS)
-// ============================================================================
 @Composable
-fun InspectorPricesTab(prices: List<SdbRegionalPrice>, baseEurFormatted: String) {
+fun InspectorPricesTab(prices: List<SdbRegionalPrice>, isLoadingPrices: Boolean) {
+    if (isLoadingPrices && prices.isEmpty()) {
+        LoadingStateBox("Consultando precios en tiempo real en las 41 divisas oficiales de Steam...")
+        return
+    }
+
     if (prices.isEmpty()) {
-        LoadingStateBox("Calculando conversión de divisas en 16 tiendas internacionales de Steam...")
+        LoadingStateBox("Este paquete es gratuito o no dispone de tabla de precios comerciales.")
         return
     }
 
     val maxEur = (prices.maxOfOrNull { it.priceInEur } ?: 1.0).coerceAtLeast(0.01)
-    val cheapest = prices.firstOrNull()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        contentPadding = PaddingValues(10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        if (cheapest != null && cheapest.priceInEur > 0) {
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SdbHeader),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth().border(1.dp, SdbBrightGreen.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("REGIÓN MÁS BARATA ACTUALMENTE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
-                            Text("${cheapest.flag} ${cheapest.countryName} (${cheapest.localPriceFormatted})", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                        }
-                        Text(
-                            text = String.format(Locale("es", "ES"), "≈ %.2f €", cheapest.priceInEur),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
-                            color = SdbBrightGreen,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-                Spacer(Modifier.height(6.dp))
-            }
-        }
-
-        // Cabecera de la tabla de precios de SteamDB
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(SdbPanel)
                     .border(1.dp, SdbBorder)
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .padding(horizontal = 8.dp, vertical = 7.dp)
             ) {
-                Text("DIVISA / PAÍS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(1.2f))
-                Text("PRECIO LOCAL", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(0.9f))
-                Text("EN EUROS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBlue, modifier = Modifier.weight(0.8f))
-                Text("VS ESPAÑA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, modifier = Modifier.width(66.dp))
+                Text("DIVISA OFICIAL STEAM (41 REGIONES)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(1.45f))
+                Text("PRECIO LOCAL", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(0.95f))
+                Text("EN EUROS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBlue, modifier = Modifier.weight(0.75f))
+                Text("VS EUR", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, modifier = Modifier.width(62.dp))
             }
         }
 
-        itemsIndexed(prices) { idx, item ->
-            val barFraction = (item.priceInEur / maxEur).toFloat().coerceIn(0.05f, 1f)
+        itemsIndexed(prices, key = { _, item -> item.regionKey }) { idx, item ->
+            val barFraction = (item.priceInEur / maxEur).toFloat().coerceIn(0.04f, 1f)
             val isCheaper = item.diffPercentageVsEur < -0.5
             val isMoreExpensive = item.diffPercentageVsEur > 0.5
 
@@ -1837,21 +1986,31 @@ fun InspectorPricesTab(prices: List<SdbRegionalPrice>, baseEurFormatted: String)
                     .padding(horizontal = 8.dp, vertical = 7.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Row(modifier = Modifier.weight(1.2f), verticalAlignment = Alignment.CenterVertically) {
-                        Text(item.flag, fontSize = 16.sp)
-                        Spacer(Modifier.width(6.dp))
+                    Row(modifier = Modifier.weight(1.45f), verticalAlignment = Alignment.CenterVertically) {
+                        Text(item.flag, fontSize = 17.sp)
+                        Spacer(Modifier.width(8.dp))
                         Column {
-                            Text(item.countryName, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(item.currencyCode, fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = SdbTextMuted)
+                            Text(
+                                text = item.currencyLabel,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (item.discountPct > 0) {
+                                Text("-${item.discountPct}% DTO.", fontSize = 9.sp, color = SdbSaleBadgeText, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
 
-                    Column(modifier = Modifier.weight(0.9f)) {
-                        Text(item.localPriceFormatted, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = SdbTextMain)
-                        if (item.discountPct > 0) {
-                            Text("-${item.discountPct}% activo", fontSize = 9.sp, color = SdbSaleBadgeText, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    Text(
+                        text = item.localPriceFormatted,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = SdbTextMain,
+                        modifier = Modifier.weight(0.95f)
+                    )
 
                     Text(
                         text = String.format(Locale("es", "ES"), "%.2f €", item.priceInEur),
@@ -1859,22 +2018,22 @@ fun InspectorPricesTab(prices: List<SdbRegionalPrice>, baseEurFormatted: String)
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Monospace,
                         color = Color.White,
-                        modifier = Modifier.weight(0.8f)
+                        modifier = Modifier.weight(0.75f)
                     )
 
                     val sign = if (item.diffPercentageVsEur > 0) "+" else ""
                     Text(
-                        text = if (item.countryCode == "ES") "BASE" else String.format(Locale("es", "ES"), "%s%.1f%%", sign, item.diffPercentageVsEur),
+                        text = if (item.regionKey == "ES") "BASE" else String.format(Locale("es", "ES"), "%s%.1f%%", sign, item.diffPercentageVsEur),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Monospace,
                         color = when {
-                            item.countryCode == "ES" -> SdbBlue
+                            item.regionKey == "ES" -> SdbBlue
                             isCheaper -> SdbBrightGreen
                             isMoreExpensive -> SdbRed
                             else -> SdbTextMuted
                         },
-                        modifier = Modifier.width(66.dp)
+                        modifier = Modifier.width(62.dp)
                     )
                 }
 
@@ -1892,9 +2051,6 @@ fun InspectorPricesTab(prices: List<SdbRegionalPrice>, baseEurFormatted: String)
     }
 }
 
-// ============================================================================
-// SUB-PESTAÑA 2 DEL INSPECTOR: GRÁFICOS DE JUGADORES Y RESEÑAS EN CANVAS
-// ============================================================================
 @Composable
 fun InspectorChartsTab(app: SdbFullAppData) {
     val numFmt = remember { NumberFormat.getIntegerInstance(Locale("es", "ES")) }
@@ -1908,7 +2064,6 @@ fun InspectorChartsTab(app: SdbFullAppData) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Gráfica 1: Curva de actividad de jugadores estilo SteamDB Charts
         Card(
             colors = CardDefaults.cardColors(containerColor = SdbHeader),
             shape = RoundedCornerShape(8.dp),
@@ -1926,7 +2081,6 @@ fun InspectorChartsTab(app: SdbFullAppData) {
 
                 Spacer(Modifier.height(12.dp))
 
-                // Curva generada en Canvas para el ciclo de actividad de 24h del AppID
                 Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1968,7 +2122,6 @@ fun InspectorChartsTab(app: SdbFullAppData) {
             }
         }
 
-        // Gráfica 2: Desglose de Reseñas Verificadas de Steam
         Card(
             colors = CardDefaults.cardColors(containerColor = SdbHeader),
             shape = RoundedCornerShape(8.dp),
@@ -2011,9 +2164,6 @@ fun InspectorChartsTab(app: SdbFullAppData) {
     }
 }
 
-// ============================================================================
-// SUB-PESTAÑA 3 DEL INSPECTOR: TABLA TÉCNICA APP INFO (ESTILO STEAMDB)
-// ============================================================================
 @Composable
 fun InspectorInformationTab(app: SdbFullAppData) {
     Column(
@@ -2048,8 +2198,8 @@ fun InspectorInformationTab(app: SdbFullAppData) {
             TechInfoRow("Metacritic Score", app.metacritic?.let { "$it / 100" } ?: "N/A", true)
             TechInfoRow("Steamworks Achievements", "${app.achievementsCount} logros", false)
             TechInfoRow("Genres", app.genres.joinToString(", ").ifBlank { "N/A" }, true)
-            TechInfoRow("Features / Categories", app.categories.joinToString(" • ").ifBlank { "N/A" }, false)
-            TechInfoRow("Supported Languages", app.supportedLanguages, true)
+            TechInfoRow("Categories", app.categories.joinToString(" • ").ifBlank { "N/A" }, false)
+            TechInfoRow("Languages", app.supportedLanguages, true)
         }
 
         Card(
@@ -2080,9 +2230,6 @@ fun TechInfoRow(key: String, value: String, even: Boolean) {
     }
 }
 
-// ============================================================================
-// SUB-PESTAÑA 4 DEL INSPECTOR: PACKAGES (SUBID) Y EXPANSIONES (DLC APPIDS)
-// ============================================================================
 @Composable
 fun InspectorDlcsAndPackagesTab(app: SdbFullAppData, onOpenDlc: (Int) -> Unit) {
     LazyColumn(
@@ -2092,7 +2239,7 @@ fun InspectorDlcsAndPackagesTab(app: SdbFullAppData, onOpenDlc: (Int) -> Unit) {
     ) {
         item {
             Text(
-                text = "STORE PACKAGES (SUBIDs REGISTRADOS: ${app.packageIds.size})",
+                text = "STORE PACKAGES (SUBIDs: ${app.packageIds.size})",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = SdbBlue,
@@ -2117,7 +2264,7 @@ fun InspectorDlcsAndPackagesTab(app: SdbFullAppData, onOpenDlc: (Int) -> Unit) {
         item {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "DLCs VINCULADOS (${app.dlcAppIds.size}) • TOCA CUALQUIER DLC PARA INSPECCIONAR SU PRECIO",
+                text = "DLCs VINCULADOS (${app.dlcAppIds.size}) • TOCA CUALQUIER DLC PARA INSPECCIONAR SUS 41 DIVISAS",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = SdbBrightGreen,
@@ -2125,42 +2272,27 @@ fun InspectorDlcsAndPackagesTab(app: SdbFullAppData, onOpenDlc: (Int) -> Unit) {
             )
         }
 
-        if (app.dlcAppIds.isEmpty()) {
-            item {
-                Text("Este juego no tiene DLCs adicionales registrados.", fontSize = 12.sp, color = SdbTextMuted)
-            }
-        } else {
-            itemsIndexed(app.dlcAppIds) { idx, dlcId ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(if (idx % 2 == 0) SdbHeader else SdbRowAlt, RoundedCornerShape(4.dp))
-                        .border(1.dp, SdbBorder, RoundedCornerShape(4.dp))
-                        .clickable { onOpenDlc(dlcId) }
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Badge(containerColor = SdbPanel) {
-                            Text("DLC", color = SdbBlue, fontFamily = FontFamily.Monospace)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Text("AppID $dlcId", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, fontFamily = FontFamily.Monospace)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Inspeccionar precios", fontSize = 11.sp, color = SdbBrightGreen)
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = SdbBrightGreen)
-                    }
+        itemsIndexed(app.dlcAppIds) { idx, dlcId ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(if (idx % 2 == 0) SdbHeader else SdbRowAlt, RoundedCornerShape(4.dp))
+                    .border(1.dp, SdbBorder, RoundedCornerShape(4.dp))
+                    .clickable { onOpenDlc(dlcId) }
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("DLC AppID $dlcId", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, fontFamily = FontFamily.Monospace)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Ver 41 divisas", fontSize = 11.sp, color = SdbBrightGreen)
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = SdbBrightGreen)
                 }
             }
         }
     }
 }
 
-// ============================================================================
-// SUB-PESTAÑA 5 DEL INSPECTOR: PATCH NOTES & UPDATES (ISTEAMNEWS)
-// ============================================================================
 @Composable
 fun InspectorPatchNotesTab(notes: List<SdbPatchNote>) {
     if (notes.isEmpty()) {
@@ -2180,10 +2312,7 @@ fun InspectorPatchNotesTab(notes: List<SdbPatchNote>) {
                 modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(note.feedLabel.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
                         Text(note.dateFormatted, fontSize = 10.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                     }
@@ -2197,9 +2326,6 @@ fun InspectorPatchNotesTab(notes: List<SdbPatchNote>) {
     }
 }
 
-// ============================================================================
-// SUB-PESTAÑA 6 DEL INSPECTOR: CAPTURAS EN ALTA DEFINICIÓN DEL CDN DE STEAM
-// ============================================================================
 @Composable
 fun InspectorMediaTab(app: SdbFullAppData) {
     LazyColumn(
