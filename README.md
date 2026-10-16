@@ -1,10 +1,6 @@
 # 🚂 SteamDB Android Client
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Androo45/SteamDB-Android/main/app/src/main/res/mipmap-hdpi/ic_launcher.png" alt="SteamDB Android Logo" width="120" height="120">
-</p>
-
-<p align="center">
   <b>An unofficial, open-source, modern native Android client for SteamDB.</b><br>
   Browse sales, track upcoming releases, calculate game prices in TF2 keys, and consult the sacred Gaben Oracle!
 </p>
