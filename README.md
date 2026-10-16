@@ -1,7 +1,7 @@
 # 🚂 SteamDB Android Client
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Androo45/SteamDB-Android/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="SteamDB Android Logo" width="120" height="120">
+  <img src="https://raw.githubusercontent.com/Androo45/SteamDB-Android/main/app/src/main/res/mipmap-hdpi/ic_launcher.png" alt="SteamDB Android Logo" width="120" height="120">
 </p>
 
 <p align="center">
