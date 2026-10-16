@@ -91,7 +91,7 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\Andro\.gradle\cach
 	android:supportsRtl
 		ADDED from D:\Datos\Escritorio\SteamDB-Android-APK\app\src\main\AndroidManifest.xml:10:9-35
 	android:label
-		ADDED from D:\Datos\Escritorio\SteamDB-Android-APK\app\src\main\AndroidManifest.xml:9:9-42
+		ADDED from D:\Datos\Escritorio\SteamDB-Android-APK\app\src\main\AndroidManifest.xml:9:9-32
 	android:icon
 		ADDED from D:\Datos\Escritorio\SteamDB-Android-APK\app\src\main\AndroidManifest.xml:8:9-49
 	android:allowBackup

@@ -1569,7 +1569,7 @@ fun HomePortalTableBlock(
 }
 
 @Composable
-fun SteamBdChartsTab(vm: SdbMainViewModel) {
+fun SteamDbChartsTab(vm: SdbMainViewModel) {
     var subTab by remember { mutableIntStateOf(0) }
     var displayLimit by remember { mutableIntStateOf(25) }
     val numFmt = remember { NumberFormat.getIntegerInstance(Locale("es", "ES")) }
@@ -1771,7 +1771,7 @@ fun SteamBdChartsTab(vm: SdbMainViewModel) {
             }
         } else {
             itemsIndexed(vm.topWantedGames, key = { index, game -> "wanted_${index}_${game.appId}" }) { index, game ->
-                SteamBdDenseGameRow(
+                SteamDbDenseGameRow(
                     rank = index + 1,
                     game = game,
                     onClick = { vm.openAppInspector(game.appId) }

@@ -1,3 +1,4 @@
 R_DEF: Internal format may change without notice
 local
+drawable ic_steambd_logo
 drawable ic_steamdb_logo
