@@ -181,9 +181,9 @@ data class SdbGameSummary(
 ) {
     val isFree: Boolean get() = finalCents == 0 && originalCents == 0
     val formattedFinal: String
-        get() = if (isFree) "Gratis" else String.format(Locale("es", "ES"), "%.2f €", finalCents / 100.0)
+        get() = if (isFree) "Gratis" else String.format(Locale("es", "ES"), "%.2f â‚¬", finalCents / 100.0)
     val formattedOriginal: String
-        get() = String.format(Locale("es", "ES"), "%.2f €", originalCents / 100.0)
+        get() = String.format(Locale("es", "ES"), "%.2f â‚¬", originalCents / 100.0)
 }
 
 data class SdbFullAppData(
@@ -272,7 +272,7 @@ object SteamSalesSchedule {
             startDateMillis = 1797440400000L,
             endDateMillis = 1798909200000L,
             dateRangeText = "18 Dic 2026 ? 04 Ene 2027",
-            description = "El mayor evento de ofertas del a?o en todo el cat?logo de Steam."
+            description = "El mayor evento de ofertas del a?o en todo el catálogo de Steam."
         ),
         SdbSaleEvent(
             name = "Steam Next Fest: February Edition",
@@ -280,7 +280,7 @@ object SteamSalesSchedule {
             startDateMillis = 1802019600000L,
             endDateMillis = 1802624400000L,
             dateRangeText = "09 Feb ? 16 Feb 2027",
-            description = "Festival de demos jugables de pr?ximos lanzamientos."
+            description = "Festival de demos jugables de próximos lanzamientos."
         ),
         SdbSaleEvent(
             name = "Steam Spring Sale (Gran Rebaja de Primavera)",
@@ -288,7 +288,7 @@ object SteamSalesSchedule {
             startDateMillis = 1805216400000L,
             endDateMillis = 1805821200000L,
             dateRangeText = "18 Mar ? 25 Mar 2027",
-            description = "Rebaja estacional de primavera en miles de t?tulos."
+            description = "Rebaja estacional de primavera en miles de títulos."
         ),
         SdbSaleEvent(
             name = "Steam Summer Sale (Gran Rebaja de Verano)",
@@ -651,7 +651,7 @@ object ValveSteamClient {
                 appId = appId,
                 name = data.optString("name", "App $appId"),
                 appType = data.optString("type", "game").uppercase(),
-                shortDesc = stripHtml(data.optString("short_description", "Sin descripci?n.")),
+                shortDesc = stripHtml(data.optString("short_description", "Sin descripción.")),
                 supportedLanguages = langs,
                 headerImage = rawHeader.ifBlank { "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/$appId/header.jpg" },
                 developers = devs.ifEmpty { listOf("N/A") },
@@ -996,10 +996,10 @@ enum class MainNavSection(
     val icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
     HOME("Portada (Home)", "Resumen general de SteamDB", Icons.Default.Home),
-    CHARTS("Steam Charts (Top 100)", "Ranking en vivo de los 100 m?s jugados", Icons.Default.ShowChart),
-    SALES("Sales Explorer", "Ofertas y descuentos activos en Espa?a", Icons.Default.LocalOffer),
-    CALENDAR("Release Calendar", "Pr?ximos lanzamientos con p?ster oficial", Icons.Default.CalendarMonth),
-    EVENTS("Next Steam Sales", "Cuenta atr?s vinculada al pr?ximo festival", Icons.Default.Timer),
+    CHARTS("Steam Charts (Top 100)", "Ranking en vivo de los 100 más jugados", Icons.Default.ShowChart),
+    SALES("Sales Explorer", "Ofertas y descuentos activos en España", Icons.Default.LocalOffer),
+    CALENDAR("Release Calendar", "Próximos lanzamientos con p?ster oficial", Icons.Default.CalendarMonth),
+    EVENTS("Next Steam Sales", "Cuenta atr?s vinculada al próximo festival", Icons.Default.Timer),
     CALC("Calculator", "Valor en Euros y ahorro de tu colecci?n", Icons.Default.Calculate)
 }
 
@@ -1287,7 +1287,7 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
 }
 
 // ============================================================================
-// PORTADA PRINCIPAL CON B?SQUEDA AUTOM?TICA DEL PR?XIMO EVENTO FUTURO
+// PORTADA PRINCIPAL CON BÚSQUEDA AUTOM?TICA DEL PRÓXIMO EVENTO FUTURO
 // ============================================================================
 @Composable
 fun SteamDbHomePortalScreen(
@@ -1363,7 +1363,7 @@ fun SteamDbHomePortalScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "⏳ TIEMPO RESTANTE PARA PR?XIMO EVENTO",
+                                text = "â³ TIEMPO RESTANTE PARA PRÓXIMO EVENTO",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = SdbSaleBadgeText,
@@ -1454,7 +1454,7 @@ fun SteamDbHomePortalScreen(
         item {
             HomePortalTableBlock(
                 title = "HOT SALES & BIGGEST DISCOUNTS",
-                actionLabel = "Ver Ofertas →",
+                actionLabel = "Ver Ofertas â†’",
                 accentColor = SdbSaleBadgeText,
                 rightHeader = "OFERTA ES",
                 games = vm.activeSalesGames.take(8),
@@ -1629,7 +1629,7 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
                     .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
                     .padding(3.dp)
             ) {
-                val titles = listOf("M?s Jugados (Top 100)", "M?s Deseados / Populares")
+                val titles = listOf("Más Jugados (Top 100)", "Más Deseados / Populares")
                 titles.forEachIndexed { idx, label ->
                     val active = subTab == idx
                     Box(
@@ -1860,7 +1860,7 @@ fun SteamDbNextSalesTab() {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        CountdownBox(days.toString(), "D?AS", false)
+                        CountdownBox(days.toString(), "DÍAS", false)
                         CountdownBox(String.format("%02d", hours), "HORAS", false)
                         CountdownBox(String.format("%02d", mins), "MINUTOS", false)
                         CountdownBox(String.format("%02d", secs), "SEGUNDOS", pulseOn)
@@ -1899,7 +1899,7 @@ fun SteamDbNextSalesTab() {
                             )
                         }
                         Text(
-                            text = if (evDaysLeft > 0) "Faltan $evDaysLeft d?as" else ev.dateRangeText,
+                            text = if (evDaysLeft > 0) "Faltan $evDaysLeft días" else ev.dateRangeText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = SdbBrightGreen,
@@ -2087,7 +2087,7 @@ fun SteamDbCalendarTab(vm: SdbMainViewModel) {
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
         Text(
-            text = "STEAM RELEASE CALENDAR ? PR?XIMOS LANZAMIENTOS",
+            text = "STEAM RELEASE CALENDAR ? PRÓXIMOS LANZAMIENTOS",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = SdbBlue,
@@ -2177,7 +2177,7 @@ fun SteamDbCalendarTab(vm: SdbMainViewModel) {
                             )
                             Spacer(Modifier.height(3.dp))
                             Text(
-                                text = if (game.finalCents > 0) "Reserva: ${game.formattedFinal}" else "Pr?ximo estreno en Steam",
+                                text = if (game.finalCents > 0) "Reserva: ${game.formattedFinal}" else "Próximo estreno en Steam",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (game.finalCents > 0) SdbSaleBadgeText else SdbBrightGreen
@@ -2261,7 +2261,7 @@ fun SteamDbSalesTab(vm: SdbMainViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-        Text("STEAMDB SALES EXPLORER (TIENDA ESPA?A - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
+        Text("STEAMDB SALES EXPLORER (TIENDA ESPAÑA - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
         Spacer(Modifier.height(6.dp))
 
         Row(
@@ -2276,12 +2276,12 @@ fun SteamDbSalesTab(vm: SdbMainViewModel) {
             FilterChip(
                 selected = minDiscount == 50,
                 onClick = { minDiscount = if (minDiscount == 50) 0 else 50 },
-                label = { Text("-50% o m?s", fontSize = 11.sp) }
+                label = { Text("-50% o más", fontSize = 11.sp) }
             )
             FilterChip(
                 selected = minDiscount == 75,
                 onClick = { minDiscount = if (minDiscount == 75) 0 else 75 },
-                label = { Text("-75% o m?s", fontSize = 11.sp) }
+                label = { Text("-75% o más", fontSize = 11.sp) }
             )
             FilterChip(
                 selected = maxEuros == 10,
@@ -2327,20 +2327,20 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
                 modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Text("STEAMDB CALCULATOR ? VALORACI?N DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
+                    Text("STEAMDB CALCULATOR ? VALORACIÓN DE BIBLIOTECA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text("Valor Actual con Rebajas", fontSize = 11.sp, color = SdbTextMuted)
-                            Text(String.format(Locale("es", "ES"), "%.2f €", totalNow), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
+                            Text(String.format(Locale("es", "ES"), "%.2f â‚¬", totalNow), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("PVP Base (Ahorro: ${String.format(Locale("es", "ES"), "%.2f €", saved)})", fontSize = 11.sp, color = SdbTextMuted)
-                            Text(String.format(Locale("es", "ES"), "%.2f €", totalBase), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                            Text("PVP Base (Ahorro: ${String.format(Locale("es", "ES"), "%.2f â‚¬", saved)})", fontSize = 11.sp, color = SdbTextMuted)
+                            Text(String.format(Locale("es", "ES"), "%.2f â‚¬", totalBase), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBlue, fontFamily = FontFamily.Monospace)
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text("Usa el buscador superior o el icono de carrito dentro de cualquier juego para a?adir o quitar t?tulos.", fontSize = 11.sp, color = SdbTextMuted)
+                    Text("Usa el buscador superior o el icono de carrito dentro de cualquier juego para añadir o quitar títulos.", fontSize = 11.sp, color = SdbTextMuted)
                 }
             }
         }
@@ -2499,7 +2499,7 @@ fun FullScreenAppInspector(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     StatCounterBox("IN-GAME", numFmt.format(app.currentPlayers), SdbBrightGreen)
                     StatCounterBox("24H PEAK", numFmt.format(app.peakTodayEstimate), SdbBlue)
-                    StatCounterBox("ESPA?A", app.finalFormatted, SdbSaleBadgeText)
+                    StatCounterBox("ESPAÑA", app.finalFormatted, SdbSaleBadgeText)
                 }
             }
             IconButton(onClick = {
@@ -2649,7 +2649,7 @@ fun InspectorPricesTab(prices: List<SdbRegionalPrice>, isLoadingPrices: Boolean)
                     )
 
                     Text(
-                        text = String.format(Locale("es", "ES"), "%.2f €", item.priceInEur),
+                        text = String.format(Locale("es", "ES"), "%.2f â‚¬", item.priceInEur),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Monospace,
@@ -3024,19 +3024,19 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
 
     val buyPhrases = remember {
         listOf(
-            "¡Gaben aprueba este tarjetazo! Dale a comprar sin mirar atrás.",
-            "¡CARA! Tu cartera llora, pero tu biblioteca sonríe. ¡A por él!",
+            "Â¡Gaben aprueba este tarjetazo! Dale a comprar sin mirar atrÃ¡s.",
+            "Â¡CARA! Tu cartera llora, pero tu biblioteca sonrÃ­e. Â¡A por Ã©l!",
             "El destino ha hablado: hoy se estrena juego nuevo en tu cuenta.",
-            "¡Luz verde del Oráculo! Si está de oferta ya no tienes excusa."
+            "Â¡Luz verde del OrÃ¡culo! Si estÃ¡ de oferta ya no tienes excusa."
         )
     }
 
     val skipPhrases = remember {
         listOf(
-            "¡CRUZ! Quieto ahí, vaquero. Tienes decenas de juegos sin tocar en tu biblioteca.",
-            "Tu cuenta bancaria acaba de suspirar de alivio. ¡Hoy NO se compra!",
-            "Gaben dice que esperes a las próximas rebajas del -75%.",
-            "¡Retirada táctica! Cierra la tienda y juega a lo que ya tienes instalado."
+            "Â¡CRUZ! Quieto ahÃ­, vaquero. Tienes decenas de juegos sin tocar en tu biblioteca.",
+            "Tu cuenta bancaria acaba de suspirar de alivio. Â¡Hoy NO se compra!",
+            "Gaben dice que esperes a las prÃ³ximas rebajas del -75%.",
+            "Â¡Retirada tÃ¡ctica! Cierra la tienda y juega a lo que ya tienes instalado."
         )
     }
 
@@ -3082,7 +3082,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "EL ORÁCULO DE GABEN • ¿GATILLAZO O AHORRO?",
+                            text = "EL ORÃCULO DE GABEN â€¢ Â¿GATILLAZO O AHORRO?",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = SdbBlue,
@@ -3094,7 +3094,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "¿Dudas si comprarte ese juego o ahorrar? Escribe el título, lanza la moneda sagrada y deja que el destino decida por tu cartera.",
+                        text = "Â¿Dudas si comprarte ese juego o ahorrar? Escribe el tÃ­tulo, lanza la moneda sagrada y deja que el destino decida por tu cartera.",
                         fontSize = 12.sp,
                         color = SdbTextMain
                     )
@@ -3115,7 +3115,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                     OutlinedTextField(
                         value = gameInput,
                         onValueChange = { gameInput = it },
-                        label = { Text("¿Qué juego te está tentando comprar?", fontSize = 12.sp) },
+                        label = { Text("Â¿QuÃ© juego te estÃ¡ tentando comprar?", fontSize = 12.sp) },
                         placeholder = { Text("Ej: Elden Ring, Cyberpunk 2077, STALCRAFT...", fontSize = 12.sp) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -3161,7 +3161,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             if (isFlipping) {
-                                Text("🪙", fontSize = 36.sp)
+                                Text("ðŸª™", fontSize = 36.sp)
                                 Text(
                                     text = "GIRANDO...",
                                     fontSize = 11.sp,
@@ -3170,7 +3170,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                                     fontFamily = FontFamily.Monospace
                                 )
                             } else if (lastResultHeads == null) {
-                                Text("🪙", fontSize = 38.sp)
+                                Text("ðŸª™", fontSize = 38.sp)
                                 Text(
                                     text = "TOCA PARA",
                                     fontSize = 10.sp,
@@ -3186,24 +3186,24 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                                     fontFamily = FontFamily.Monospace
                                 )
                             } else if (lastResultHeads == true) {
-                                Text("🛒", fontSize = 36.sp)
+                                Text("ðŸ›’", fontSize = 36.sp)
                                 Text(
-                                    text = "¡CARA!",
+                                    text = "Â¡CARA!",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SdbBrightGreen,
                                     fontFamily = FontFamily.Monospace
                                 )
                                 Text(
-                                    text = "CÓMPRALO",
+                                    text = "CÃ“MPRALO",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
                             } else {
-                                Text("🛡️", fontSize = 36.sp)
+                                Text("ðŸ›¡ï¸", fontSize = 36.sp)
                                 Text(
-                                    text = "¡CRUZ!",
+                                    text = "Â¡CRUZ!",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color(0xFFFF5252),
@@ -3234,7 +3234,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = if (isFlipping) "Consultando al destino..." else "🪙 ¡LANZAR MONEDA DEL DESTINO!",
+                            text = if (isFlipping) "Consultando al destino..." else "ðŸª™ Â¡LANZAR MONEDA DEL DESTINO!",
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF0A0E14)
                         )
@@ -3253,8 +3253,8 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = if (lastResultHeads == true) "VEREDICTO PARA «»: ¡SE COMPRA!"
-                                           else "VEREDICTO PARA «»: ¡CARTERA A SALVO!",
+                                    text = if (lastResultHeads == true) "VEREDICTO PARA Â«Â»: Â¡SE COMPRA!"
+                                           else "VEREDICTO PARA Â«Â»: Â¡CARTERA A SALVO!",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = resColor,
@@ -3276,7 +3276,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
         if (history.isNotEmpty()) {
             item {
                 Text(
-                    text = "HISTORIAL DEL ORÁCULO (SIN TRAMPAS)",
+                    text = "HISTORIAL DEL ORÃCULO (SIN TRAMPAS)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = SdbTextMuted,
@@ -3301,7 +3301,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                     Spacer(Modifier.width(8.dp))
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = if (item.isHeads) "CARA • COMPRAR" else "CRUZ • AHORRAR",
+                            text = if (item.isHeads) "CARA â€¢ COMPRAR" else "CRUZ â€¢ AHORRAR",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = badgeColor,
