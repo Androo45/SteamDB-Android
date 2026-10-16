@@ -1428,7 +1428,7 @@ fun SteamDbHomePortalScreen(
                             leadingIcon = { Icon(Icons.Default.Casino, contentDescription = null, modifier = Modifier.size(15.dp), tint = SdbBlue) }
                         )
                         AssistChip(
-                            onClick = { onNavigate(MainNavSection.CALCULATOR as MainNavSection) },
+                            onClick = { onNavigate(MainNavSection.CALC as MainNavSection) },
                             label = { Text("Calculadora", fontSize = 11.sp) },
                             leadingIcon = { Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(15.dp), tint = SdbOrange) }
                         )
