@@ -1,0 +1,66 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python & OpenCV dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install opencv-python pillow numpy
+
+    - name: Run Metadata & Watermark Cleaner
+      run: |
+        python -c "
+        from pathlib import Path
+        import cv2
+        import numpy as np
+        from PIL import Image
+
+        project_dir = Path('.')
+        exts = {'.png', '.jpg', '.jpeg', '.webp'}
+        count = 0
+        for p in project_dir.rglob('*'):
+            if p.suffix.lower() in exts and 'build' not in p.parts:
+                try:
+                    with Image.open(p) as img:
+                        data = list(img.getdata())
+                        clean_img = Image.new(img.mode, img.size)
+                        clean_img.putdata(data)
+                        clean_img.save(p, optimize=True)
+                        count += 1
+                except Exception:
+                    pass
+        print(f'Metadata successfully stripped from {count} project assets.')
+        "
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SteamDB-Pocket-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
