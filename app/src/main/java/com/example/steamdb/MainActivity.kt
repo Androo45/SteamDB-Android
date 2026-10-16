@@ -36,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -180,9 +181,9 @@ data class SdbGameSummary(
 ) {
     val isFree: Boolean get() = finalCents == 0 && originalCents == 0
     val formattedFinal: String
-        get() = if (isFree) "Gratis" else String.format(Locale("es", "ES"), "%.2f ?", finalCents / 100.0)
+        get() = if (isFree) "Gratis" else String.format(Locale("es", "ES"), "%.2f €", finalCents / 100.0)
     val formattedOriginal: String
-        get() = String.format(Locale("es", "ES"), "%.2f ?", originalCents / 100.0)
+        get() = String.format(Locale("es", "ES"), "%.2f €", originalCents / 100.0)
 }
 
 data class SdbFullAppData(
@@ -1362,7 +1363,7 @@ fun SteamDbHomePortalScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "? TIEMPO RESTANTE PARA PR?XIMO EVENTO",
+                                text = "⏳ TIEMPO RESTANTE PARA PR?XIMO EVENTO",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = SdbSaleBadgeText,
@@ -1453,7 +1454,7 @@ fun SteamDbHomePortalScreen(
         item {
             HomePortalTableBlock(
                 title = "HOT SALES & BIGGEST DISCOUNTS",
-                actionLabel = "Ver Ofertas ?",
+                actionLabel = "Ver Ofertas →",
                 accentColor = SdbSaleBadgeText,
                 rightHeader = "OFERTA ES",
                 games = vm.activeSalesGames.take(8),
@@ -2331,11 +2332,11 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text("Valor Actual con Rebajas", fontSize = 11.sp, color = SdbTextMuted)
-                            Text(String.format(Locale("es", "ES"), "%.2f ?", totalNow), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
+                            Text(String.format(Locale("es", "ES"), "%.2f €", totalNow), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("PVP Base (Ahorro: ${String.format(Locale("es", "ES"), "%.2f ?", saved)})", fontSize = 11.sp, color = SdbTextMuted)
-                            Text(String.format(Locale("es", "ES"), "%.2f ?", totalBase), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                            Text("PVP Base (Ahorro: ${String.format(Locale("es", "ES"), "%.2f €", saved)})", fontSize = 11.sp, color = SdbTextMuted)
+                            Text(String.format(Locale("es", "ES"), "%.2f €", totalBase), fontSize = 22.sp, fontWeight = FontWeight.Black, color = SdbBlue, fontFamily = FontFamily.Monospace)
                         }
                     }
                     Spacer(Modifier.height(6.dp))
@@ -2648,7 +2649,7 @@ fun InspectorPricesTab(prices: List<SdbRegionalPrice>, isLoadingPrices: Boolean)
                     )
 
                     Text(
-                        text = String.format(Locale("es", "ES"), "%.2f ?", item.priceInEur),
+                        text = String.format(Locale("es", "ES"), "%.2f €", item.priceInEur),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Monospace,
@@ -3004,3 +3005,312 @@ fun LoadingStateBox(message: String) {
 }
 
 
+data class GabenFlipRecord(
+    val gameName: String,
+    val isHeads: Boolean,
+    val phrase: String,
+    val timestamp: String
+)
+
+@Composable
+fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
+    var gameInput by remember { mutableStateOf("") }
+    var isFlipping by remember { mutableStateOf(false) }
+    var flipTrigger by remember { mutableIntStateOf(0) }
+    var lastResultHeads by remember { mutableStateOf<Boolean?>(null) }
+    var lastGameTested by remember { mutableStateOf("") }
+    var lastVerdictPhrase by remember { mutableStateOf("") }
+    val history = remember { mutableStateListOf<GabenFlipRecord>() }
+
+    val buyPhrases = remember {
+        listOf(
+            "¡Gaben aprueba este tarjetazo! Dale a comprar sin mirar atrás.",
+            "¡CARA! Tu cartera llora, pero tu biblioteca sonríe. ¡A por él!",
+            "El destino ha hablado: hoy se estrena juego nuevo en tu cuenta.",
+            "¡Luz verde del Oráculo! Si está de oferta ya no tienes excusa."
+        )
+    }
+
+    val skipPhrases = remember {
+        listOf(
+            "¡CRUZ! Quieto ahí, vaquero. Tienes decenas de juegos sin tocar en tu biblioteca.",
+            "Tu cuenta bancaria acaba de suspirar de alivio. ¡Hoy NO se compra!",
+            "Gaben dice que esperes a las próximas rebajas del -75%.",
+            "¡Retirada táctica! Cierra la tienda y juega a lo que ya tienes instalado."
+        )
+    }
+
+    val rotationAnim = remember { androidx.compose.animation.core.Animatable(0f) }
+
+    LaunchedEffect(flipTrigger) {
+        if (flipTrigger > 0) {
+            isFlipping = true
+            val outcomeHeads = kotlin.random.Random.nextBoolean()
+            val targetSpins = 1800f + if (outcomeHeads) 0f else 180f
+            rotationAnim.snapTo(0f)
+            rotationAnim.animateTo(
+                targetValue = targetSpins,
+                animationSpec = androidx.compose.animation.core.tween(
+                    durationMillis = 1200,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                )
+            )
+            lastResultHeads = outcomeHeads
+            val chosenPhrase = if (outcomeHeads) buyPhrases.random() else skipPhrases.random()
+            lastVerdictPhrase = chosenPhrase
+            val timeStr = java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(java.util.Date())
+            history.add(0, GabenFlipRecord(lastGameTested, outcomeHeads, chosenPhrase, timeStr))
+            isFlipping = false
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SdbHeader),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(10.dp))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "EL ORÁCULO DE GABEN • ¿GATILLAZO O AHORRO?",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SdbBlue,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Badge(containerColor = SdbSaleBadgeBg) {
+                            Text("50 / 50 RNG", color = SdbSaleBadgeText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "¿Dudas si comprarte ese juego o ahorrar? Escribe el título, lanza la moneda sagrada y deja que el destino decida por tu cartera.",
+                        fontSize = 12.sp,
+                        color = SdbTextMain
+                    )
+                }
+            }
+        }
+
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SdbPanel),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(10.dp))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    OutlinedTextField(
+                        value = gameInput,
+                        onValueChange = { gameInput = it },
+                        label = { Text("¿Qué juego te está tentando comprar?", fontSize = 12.sp) },
+                        placeholder = { Text("Ej: Elden Ring, Cyberpunk 2077, STALCRAFT...", fontSize = 12.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SdbBlue,
+                            unfocusedBorderColor = SdbBorder,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedLabelColor = SdbBlue,
+                            unfocusedLabelColor = SdbTextMuted
+                        )
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    val coinColor = when {
+                        isFlipping -> SdbBlue
+                        lastResultHeads == true -> SdbBrightGreen
+                        lastResultHeads == false -> Color(0xFFFF5252)
+                        else -> SdbBlue
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(134.dp)
+                            .graphicsLayer {
+                                rotationY = rotationAnim.value
+                                cameraDistance = 12f * density
+                            }
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(coinColor.copy(alpha = 0.35f), SdbHeader)
+                                )
+                            )
+                            .border(4.dp, coinColor, CircleShape)
+                            .clickable(enabled = !isFlipping) {
+                                val targetName = gameInput.trim().ifEmpty { "Juego Misterioso de Steam" }
+                                lastGameTested = targetName
+                                flipTrigger++
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (isFlipping) {
+                                Text("🪙", fontSize = 36.sp)
+                                Text(
+                                    text = "GIRANDO...",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            } else if (lastResultHeads == null) {
+                                Text("🪙", fontSize = 38.sp)
+                                Text(
+                                    text = "TOCA PARA",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SdbTextMuted,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = "LANZAR",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = SdbBlue,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            } else if (lastResultHeads == true) {
+                                Text("🛒", fontSize = 36.sp)
+                                Text(
+                                    text = "¡CARA!",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = SdbBrightGreen,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = "CÓMPRALO",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            } else {
+                                Text("🛡️", fontSize = 36.sp)
+                                Text(
+                                    text = "¡CRUZ!",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFFFF5252),
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = "NO COMPRES",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(18.dp))
+
+                    Button(
+                        onClick = {
+                            if (!isFlipping) {
+                                val targetName = gameInput.trim().ifEmpty { "Juego Misterioso de Steam" }
+                                lastGameTested = targetName
+                                flipTrigger++
+                            }
+                        },
+                        enabled = !isFlipping,
+                        colors = ButtonDefaults.buttonColors(containerColor = SdbBlue),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = if (isFlipping) "Consultando al destino..." else "🪙 ¡LANZAR MONEDA DEL DESTINO!",
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF0A0E14)
+                        )
+                    }
+
+                    if (!isFlipping && lastResultHeads != null) {
+                        Spacer(Modifier.height(14.dp))
+                        val resColor = if (lastResultHeads == true) SdbBrightGreen else Color(0xFFFF5252)
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = SdbHeader),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth().border(1.dp, resColor, RoundedCornerShape(8.dp))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = if (lastResultHeads == true) "VEREDICTO PARA «»: ¡SE COMPRA!"
+                                           else "VEREDICTO PARA «»: ¡CARTERA A SALVO!",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = resColor,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = lastVerdictPhrase,
+                                    fontSize = 12.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (history.isNotEmpty()) {
+            item {
+                Text(
+                    text = "HISTORIAL DEL ORÁCULO (SIN TRAMPAS)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SdbTextMuted,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            itemsIndexed(history) { idx, item ->
+                val badgeColor = if (item.isHeads) SdbBrightGreen else Color(0xFFFF5252)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(if (idx % 2 == 0) SdbHeader else SdbRowAlt)
+                        .border(0.5.dp, SdbBorder)
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(item.gameName, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(item.phrase, fontSize = 11.sp, color = SdbTextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = if (item.isHeads) "CARA • COMPRAR" else "CRUZ • AHORRAR",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = badgeColor,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(item.timestamp, fontSize = 9.sp, color = SdbTextMuted, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+    }
+}
