@@ -1,0 +1,30 @@
+[
+    {
+        "merged": "com.example.steamdb.app-release-46:/drawable_ic_steamdb_logo.xml.flat",
+        "source": "com.example.steamdb.app-main-47:/drawable/ic_steamdb_logo.xml"
+    },
+    {
+        "merged": "com.example.steamdb.app-release-46:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.example.steamdb.app-main-47:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.example.steamdb.app-release-46:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.example.steamdb.app-main-47:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.example.steamdb.app-release-46:/drawable_ic_steambd_logo.xml.flat",
+        "source": "com.example.steamdb.app-main-47:/drawable/ic_steambd_logo.xml"
+    },
+    {
+        "merged": "com.example.steamdb.app-release-46:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.example.steamdb.app-main-47:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.example.steamdb.app-release-46:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.example.steamdb.app-main-47:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.example.steamdb.app-release-46:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.example.steamdb.app-main-47:/mipmap-xhdpi/ic_launcher.png"
+    }
+]

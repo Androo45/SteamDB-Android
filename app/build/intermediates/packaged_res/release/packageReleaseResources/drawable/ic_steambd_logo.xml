@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Fondo cyber-dark profundo -->
+    <path
+        android:fillColor="#0E131B"
+        android:pathData="M0,0h108v108h-108z"/>
+
+    <!-- Marco exterior bicolor (Azul Steam a Verde Neón) -->
+    <path
+        android:strokeColor="#66C0F4"
+        android:strokeWidth="2.2"
+        android:fillColor="#141B26"
+        android:pathData="M18,6 L90,6 L102,18 L102,90 L90,102 L18,102 L6,90 L6,18 Z"/>
+
+    <!-- Mitad Izquierda de la Estrella de 12 puntas (Azul Steam #66C0F4) -->
+    <path
+        android:fillColor="#66C0F4"
+        android:pathData="M54,12 L47,36 L33,17 L39,41 L18,30 L35,48 L11,53 L35,58 L19,74 L41,65 L32,89 L48,70 L50,96 L54,72 Z"/>
+
+    <!-- Mitad Derecha de la Estrella de 12 puntas (Verde Neón #00E676) -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M54,12 L59,37 L77,20 L67,44 L92,38 L71,52 L95,60 L69,61 L84,81 L63,68 L69,91 L56,71 L50,96 L54,72 Z"/>
+
+    <!-- Trazos internos de circuito digital -->
+    <path
+        android:strokeColor="#0E131B"
+        android:strokeWidth="1.6"
+        android:fillColor="#00000000"
+        android:pathData="M54,18 L54,42 M37,24 L48,44 M24,35 L44,50 M20,53 L42,54 M26,70 L45,60 M36,83 L49,64 M72,26 L60,45 M85,41 L64,51 M88,58 L65,57 M78,76 L61,63"/>
+
+    <!-- Nodos de telemetría exteriores -->
+    <path
+        android:fillColor="#66C0F4"
+        android:pathData="M24,21 L28,21 L28,25 L24,25 Z M15,41 L19,41 L19,45 L15,45 Z M21,81 L25,81 L25,85 L21,85 Z"/>
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M82,27 L86,27 L86,31 L82,31 Z M89,48 L93,48 L93,52 L89,52 Z M79,84 L83,84 L83,88 L79,88 Z"/>
+
+    <!-- Cápsula central oscura para el emblema DB -->
+    <path
+        android:fillColor="#0E131B"
+        android:strokeColor="#66C0F4"
+        android:strokeWidth="2"
+        android:pathData="M31,42 L77,42 L82,47 L82,61 L77,66 L31,66 L26,61 L26,47 Z"/>
+
+    <!-- Letra D (Blanco brillante / Azul) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,47 L46,47 L50,51 L50,57 L46,61 L34,61 Z M38,50 L38,58 L44,58 L46,56 L46,52 L44,50 Z"/>
+
+    <!-- Letra B (Verde Neón / Cian) -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M55,47 L69,47 L72,49.5 L72,52.5 L69.5,54 L72.5,55.5 L72.5,58.5 L69,61 L55,61 Z M59,50 L59,52.8 L67,52.8 L67,50 Z M59,55.2 L59,58 L67.5,58 L67.5,55.2 Z"/>
+</vector>
