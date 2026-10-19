@@ -1,4 +1,4 @@
-package com.example.steamdb
+﻿package com.example.steamdb
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -1339,7 +1339,7 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text("SteamDB", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = SdbInk)
-                            Text("Cliente Nativo v1.1.0 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
+                            Text("Cliente Nativo v1.1.1 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                         }
                     }
 
@@ -4528,7 +4528,7 @@ object FavoritesStore {
 // ==================== COMPROBADOR DE NUEVAS VERSIONES (GITHUB RELEASES) ====================
 
 object UpdateChecker {
-    const val CURRENT_VERSION = "1.1.0"
+    const val CURRENT_VERSION = "1.1.1"
     private const val RELEASES_API_URL = "https://api.github.com/repos/Androo45/SteamDB-Android/releases/latest"
     const val RELEASES_PAGE_URL = "https://github.com/Androo45/SteamDB-Android/releases/latest"
 
