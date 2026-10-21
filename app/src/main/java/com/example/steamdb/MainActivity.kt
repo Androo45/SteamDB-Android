@@ -27,6 +27,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -110,6 +113,196 @@ object SdbSettings {
 }
 
 /** Traduce una cadena según el idioma elegido en ajustes. */
+private val SDB_EN: Map<String, String> = mapOf(
+    "FESTIVAL TEMÁTICO" to "THEMED FESTIVAL",
+    "Descuentos especiales en juegos de terror, supervivencia y misterio." to "Special discounts on horror, survival and mystery games.",
+    "Steam Autumn Sale (Gran Rebaja de Otoño)" to "Steam Autumn Sale",
+    "Gran rebaja estacional de otoño y nominaciones a los Steam Awards." to "Big seasonal autumn sale and Steam Awards nominations.",
+    "Steam Winter Sale (Gran Rebaja de Invierno)" to "Steam Winter Sale",
+    "El mayor evento de ofertas del año en todo el catálogo de Steam." to "The biggest sale event of the year across the whole Steam catalog.",
+    "FESTIVAL DE DEMOS" to "DEMO FESTIVAL",
+    "Festival de demos jugables de próximos lanzamientos." to "Festival of playable demos from upcoming releases.",
+    "Steam Spring Sale (Gran Rebaja de Primavera)" to "Steam Spring Sale",
+    "Rebaja estacional de primavera en miles de títulos." to "Seasonal spring sale on thousands of titles.",
+    "Steam Summer Sale (Gran Rebaja de Verano)" to "Steam Summer Sale",
+    "Gran rebaja anual de verano con descuentos masivos." to "Big yearly summer sale with massive discounts.",
+    "Próximamente" to "Coming soon",
+    "Sin descripción." to "No description.",
+    "Actualización" to "Update",
+    "Portada (Home)" to "Home",
+    "Resumen general de SteamDB" to "SteamDB overview",
+    "Ranking en vivo de los 100 más jugados" to "Live ranking of the 100 most played",
+    "Ofertas y descuentos activos en España" to "Active deals and discounts in Spain",
+    "Favoritos ⭐" to "Favorites ⭐",
+    "Vigilancia de bajadas de precio" to "Price drop watch",
+    "Próximos lanzamientos con póster oficial" to "Upcoming releases with official posters",
+    "Cuenta atrás vinculada al próximo festival" to "Countdown to the next festival",
+    "Llaves TF2 necesarias en cualquier divisa de Steam" to "TF2 keys needed in any Steam currency",
+    "El Oráculo de Gaben" to "Gaben's Oracle",
+    "¿Gatillazo o ahorro? Lanza la moneda" to "Buy or save? Flip the coin",
+    "Abrir Menú" to "Open menu",
+    "Buscar en SteamDB..." to "Search SteamDB...",
+    "Cargando portada de SteamDB..." to "Loading SteamDB home...",
+    "Base de datos en tiempo real de precios, jugadores y paquetes de Steam." to "Real-time database of Steam prices, players and packages.",
+    "🪙 Oráculo" to "🪙 Oracle",
+    "⏳ TIEMPO RESTANTE PARA PRÓXIMO EVENTO" to "⏳ TIME LEFT UNTIL NEXT EVENT",
+    "Oráculo de Gaben" to "Gaben's Oracle",
+    "Calculadora" to "Calculator",
+    "Descargar" to "Download",
+    "Ver Top 100 →" to "View Top 100 →",
+    "Ver Ranking →" to "View ranking →",
+    "PRECIO / DTO" to "PRICE / DISC.",
+    "Ver Ofertas →" to "View deals →",
+    "Sincronizando el Top 100 de jugadores simultáneos de Steam..." to "Syncing Steam's Top 100 concurrent players...",
+    "Más Jugados (Top 100)" to "Most Played (Top 100)",
+    "Más Deseados / Populares" to "Most Wishlisted / Popular",
+    "Mostrar:" to "Show:",
+    "Ver Top 100" to "View Top 100",
+    "JUEGO / APPID" to "GAME / APPID",
+    "ACTUAL" to "CURRENT",
+    "JUGANDO" to "PLAYING",
+    "PRECIO ES" to "PRICE ES",
+    "CUENTA ATRÁS PARA PRÓXIMA REBAJA DE STEAM" to "COUNTDOWN TO NEXT STEAM SALE",
+    "DÍAS" to "DAYS",
+    "LUN" to "MON",
+    "MAR" to "TUE",
+    "MIÉ" to "WED",
+    "JUE" to "THU",
+    "VIE" to "FRI",
+    "SÁB" to "SAT",
+    "DOM" to "SUN",
+    "Lunes" to "Monday",
+    "Martes" to "Tuesday",
+    "Miércoles" to "Wednesday",
+    "Jueves" to "Thursday",
+    "Viernes" to "Friday",
+    "Sábado" to "Saturday",
+    "Domingo" to "Sunday",
+    " · HOY" to " · TODAY",
+    " · MAÑANA" to " · TOMORROW",
+    "Sin fecha concreta" to "No exact date",
+    "Descargando pósters oficiales y fechas del calendario de Steam..." to "Downloading official posters and Steam calendar dates...",
+    "CALENDARIO DE LANZAMIENTOS" to "RELEASE CALENDAR",
+    "Desliza los días o toca un juego para ver su ficha" to "Swipe the days or tap a game to see its page",
+    "No hay lanzamientos próximos ahora mismo" to "No upcoming releases right now",
+    "Estreno en Steam" to "Steam release",
+    "Top 10 en vivo • Usa los botones inferiores para desplegar hasta el Top 100" to "Live Top 10 • Use the buttons below to expand up to the Top 100",
+    "STEAMDB SALES EXPLORER (TIENDA ESPAÑA - EUR)" to "STEAMDB SALES EXPLORER (SPAIN STORE - EUR)",
+    "-50% o más" to "-50% or more",
+    "-75% o más" to "-75% or more",
+    "Menos de 10 €" to "Under 10 €",
+    "Menos de 5 €" to "Under 5 €",
+    "Dólar estadounidense" to "US Dollar",
+    "Libra esterlina" to "British Pound",
+    "Franco suizo" to "Swiss Franc",
+    "Rublo ruso" to "Russian Ruble",
+    "Esloti polaco" to "Polish Zloty",
+    "Real brasileño" to "Brazilian Real",
+    "Yen japonés" to "Japanese Yen",
+    "Corona noruega" to "Norwegian Krone",
+    "Rupia indonesia" to "Indonesian Rupiah",
+    "Ringgit malayo" to "Malaysian Ringgit",
+    "Peso filipino" to "Philippine Peso",
+    "Dólar de Singapur" to "Singapore Dollar",
+    "Baht tailandés" to "Thai Baht",
+    "Dong vietnamita" to "Vietnamese Dong",
+    "Won surcoreano" to "South Korean Won",
+    "Lira turca" to "Turkish Lira",
+    "Grivna ucraniana" to "Ukrainian Hryvnia",
+    "Peso mexicano" to "Mexican Peso",
+    "Dólar canadiense" to "Canadian Dollar",
+    "Dólar australiano" to "Australian Dollar",
+    "Dólar neozelandés" to "New Zealand Dollar",
+    "Yuan chino" to "Chinese Yuan",
+    "Rupia india" to "Indian Rupee",
+    "Peso chileno" to "Chilean Peso",
+    "Sol peruano" to "Peruvian Sol",
+    "Peso colombiano" to "Colombian Peso",
+    "Rand sudafricano" to "South African Rand",
+    "Dólar de Hong Kong" to "Hong Kong Dollar",
+    "Dólar taiwanés" to "Taiwan Dollar",
+    "Riyal saudí" to "Saudi Riyal",
+    "Dírham de EAU" to "UAE Dirham",
+    "Peso argentino" to "Argentine Peso",
+    "Nuevo séquel israelí" to "Israeli New Shekel",
+    "Tenge kazajo" to "Kazakhstani Tenge",
+    "Dinar kuwaití" to "Kuwaiti Dinar",
+    "Riyal catarí" to "Qatari Riyal",
+    "Colón costarricense" to "Costa Rican Colón",
+    "Peso uruguayo" to "Uruguayan Peso",
+    "No se pudo contactar con el mercado de Steam (puede estar limitando peticiones). Escribe el precio a mano." to "Couldn't reach the Steam Market (it may be rate-limiting). Type the price manually.",
+    "Sin datos de mercado para esta divisa. Escribe el precio a mano." to "No market data for this currency. Type the price manually.",
+    "Respuesta no válida del mercado." to "Invalid market response.",
+    "DIVISA" to "CURRENCY",
+    "COMISIÓN MERCADO (5% STEAM + 10% TF2)" to "MARKET FEE (5% STEAM + 10% TF2)",
+    "Escribe el precio" to "Type the price",
+    "Cargando…" to "Loading…",
+    "ACTUALIZAR" to "REFRESH",
+    "Consultando el Mercado de Steam…" to "Checking the Steam Market…",
+    "Usando tu precio manual." to "Using your manual price.",
+    "Sin precio del mercado: escribe uno." to "No market price: type one.",
+    "Recibes por cada llave vendida" to "You get per key sold",
+    "Llaves exactas sin comisión" to "Exact keys without fee",
+    "Llaves exactas con comisión" to "Exact keys with fee",
+    "Te sobra en el monedero" to "Left in your wallet",
+    "Escribe el precio del juego y espera al precio de la llave." to "Type the game price and wait for the key price.",
+    "Añadir a favoritos" to "Add to favorites",
+    "Inspeccionando metadatos del paquete y consultando las 41 divisas oficiales de Steam..." to "Inspecting package metadata and checking Steam's 41 official currencies...",
+    "Error al leer el AppID. Volver" to "Error reading the AppID. Go back",
+    "ESPAÑA" to "SPAIN",
+    "Favorito con vigilancia de precio" to "Favorite with price watch",
+    "Consultando precios en tiempo real en las 41 divisas oficiales de Steam..." to "Checking real-time prices in Steam's 41 official currencies...",
+    "Este paquete es gratuito o no dispone de tabla de precios comerciales." to "This package is free or has no price table.",
+    "DIVISA OFICIAL STEAM (41 REGIONES)" to "OFFICIAL STEAM CURRENCY (41 REGIONS)",
+    "PRECIO LOCAL" to "LOCAL PRICE",
+    "EN EUROS" to "IN EUROS",
+    "No hay historial mensual disponible para este juego (juegos muy nuevos o con pocos datos)." to "No monthly history for this game (very new games or little data).",
+    "Ver 41 divisas" to "View 41 currencies",
+    "¡Gaben aprueba este tarjetazo! Dale a comprar sin mirar atrás." to "Gaben approves this purchase! Hit buy and don't look back.",
+    "¡CARA! Tu cartera llora, pero tu biblioteca sonríe. ¡A por él!" to "HEADS! Your wallet cries, but your library smiles. Go for it!",
+    "El destino ha hablado: hoy se estrena juego nuevo en tu cuenta." to "Fate has spoken: a new game lands in your account today.",
+    "¡Luz verde del Oráculo! Si está de oferta ya no tienes excusa." to "Green light from the Oracle! If it's on sale, no more excuses.",
+    "¡CRUZ! Quieto ahí, vaquero. Tienes decenas de juegos sin tocar en tu biblioteca." to "TAILS! Hold it, cowboy. You've got dozens of untouched games in your library.",
+    "Tu cuenta bancaria acaba de suspirar de alivio. ¡Hoy NO se compra!" to "Your bank account just sighed with relief. No buying today!",
+    "Gaben dice que esperes a las próximas rebajas del -75%." to "Gaben says wait for the next -75% sale.",
+    "¡Retirada táctica! Cierra la tienda y juega a lo que ya tienes instalado." to "Tactical retreat! Close the store and play what you already have installed.",
+    "EL ORÁCULO DE GABEN" to "GABEN'S ORACLE",
+    "¿Dudas si comprarte ese juego o ahorrar? Escribe el título, lanza la moneda sagrada y deja que el destino decida por tu cartera." to "Not sure whether to buy that game or save? Type the title, flip the sacred coin and let fate decide for your wallet.",
+    "¿Qué juego te está tentando comprar?" to "Which game is tempting you?",
+    "Juego Misterioso de Steam" to "Mystery Steam Game",
+    "TOCA PARA" to "TAP TO",
+    "LANZAR" to "FLIP",
+    "¡CARA!" to "HEADS!",
+    "¡A COMPRAR!" to "BUY IT!",
+    "¡CRUZ!" to "TAILS!",
+    "¡AHORRA!" to "SAVE!",
+    "🪙 ¡LANZAR MONEDA DEL DESTINO!" to "🪙 FLIP THE COIN OF FATE!",
+    "HISTORIAL DEL ORÁCULO (SIN TRAMPAS)" to "ORACLE HISTORY (NO CHEATING)",
+    "WATCHLIST DE FAVORITOS • SEGUIMIENTO DE PRECIOS" to "FAVORITES WATCHLIST • PRICE TRACKING",
+    "Cuando actualices la app (icono ⟳ arriba), SteamDB compara el precio actual de cada favorito con el último visto y te avisa aquí si ha bajado." to "When you refresh (⟳ icon above), SteamDB compares each favorite's current price with the last one seen and tells you here if it dropped.",
+    "FAVORITOS" to "FAVORITES",
+    "EN OBJETIVO" to "ON TARGET",
+    "Todavía no tienes favoritos" to "You don't have favorites yet",
+    "Abre cualquier juego (buscador, Charts u Ofertas) y toca la estrella ⭐ de su ficha para añadirlo a la vigilancia de precios." to "Open any game (search, Charts or Deals) and tap the ⭐ star on its page to add it to price tracking.",
+    "Sin precio" to "No price",
+    "🎯 ¡OBJETIVO CONSEGUIDO!" to "🎯 TARGET REACHED!",
+    "Precio objetivo" to "Target price",
+    "Quitar de favoritos" to "Remove from favorites",
+    "Guardar" to "Save",
+    "Cancelar" to "Cancel",
+    "Cliente Nativo v1.1.2 • 41 Divisas" to "Native Client v1.1.2 • 41 Currencies",
+    "KEY COMMANDER • LLAVES TF2" to "KEY COMMANDER • TF2 KEYS",
+    "LLAVES NECESARIAS" to "KEYS NEEDED",
+    "PICO 24H" to "24H PEAK",
+    "Ej: Elden Ring, Cyberpunk..." to "E.g. Elden Ring, Cyberpunk...",
+    "STEAM REVIEWS BREAKDOWN • VALORACIONES" to "STEAM REVIEWS BREAKDOWN",
+    "Aún no hay suficientes datos. La app guarda el precio cada vez que consultas este juego o se actualizan tus favoritos, y aquí verás su evolución y su mínimo histórico." to "Not enough data yet. The app saves the price every time you check this game or your favorites refresh, and here you'll see its evolution and all-time low."
+)
+private val SDB_MONTH_EN = listOf("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+private val SDB_MONTH_ES = listOf("ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC")
+fun sdbMonth(m: Int): String = if (SdbSettings.english) SDB_MONTH_EN[m - 1] else SDB_MONTH_ES[m - 1]
+fun tr(es: String): String = if (SdbSettings.english) (SDB_EN[es] ?: es) else es
+
 fun t(es: String, en: String): String = if (SdbSettings.english) en else es
 
 private val DarkBg = Color(0xFF161920)
@@ -1339,71 +1532,71 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text("SteamDB", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = SdbInk)
-                            Text("Cliente Nativo v1.1.1 • 41 Divisas", fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
+                            Text(tr("Cliente Nativo v1.1.2 • 41 Divisas"), fontSize = 11.sp, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                         }
                     }
 
                     Spacer(Modifier.height(14.dp))
 
-                    // Idioma ES/EN
+                    // Ajustes compactos: idioma (pastilla ES/EN) + tema (icono sol/luna)
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(SdbPanel)
-                            .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
-                            .padding(3.dp),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        listOf(false to "ESPAÑOL", true to "ENGLISH").forEach { (eng, label) ->
-                            val sel = SdbSettings.english == eng
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(if (sel) SdbBlue else Color.Transparent)
-                                    .clickable { SdbSettings.applyEnglish(eng) }
-                                    .padding(vertical = 7.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    label,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (sel) Color.White else SdbTextMuted,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Modo claro/oscuro
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(SdbPanel)
-                            .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
-                            .clickable { SdbSettings.applyDarkMode(!SdbSettings.darkMode) }
-                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            t("Modo claro", "Light mode"),
-                            fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SdbTextMain
-                        )
-                        Switch(
-                            checked = !SdbSettings.darkMode,
-                            onCheckedChange = { SdbSettings.applyDarkMode(!it) },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = SdbBlue,
-                                uncheckedTrackColor = SdbBorder
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(SdbPanel)
+                                .border(1.dp, SdbBorder, RoundedCornerShape(50))
+                                .padding(3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Language,
+                                contentDescription = null,
+                                tint = SdbTextMuted,
+                                modifier = Modifier.padding(start = 6.dp, end = 4.dp).size(14.dp)
                             )
-                        )
+                            listOf(false to "ES", true to "EN").forEach { (eng, label) ->
+                                val sel = SdbSettings.english == eng
+                                val bg by animateColorAsState(if (sel) SdbBlue else Color.Transparent, label = "langBg")
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(bg)
+                                        .clickable { SdbSettings.applyEnglish(eng) }
+                                        .padding(horizontal = 12.dp, vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sel) Color.White else SdbTextMuted)
+                                }
+                            }
+                        }
+
+                        val dark = SdbSettings.darkMode
+                        val rot by animateFloatAsState(if (dark) 0f else 360f, label = "themeRot")
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(SdbPanel)
+                                .border(1.dp, SdbBorder, CircleShape)
+                                .clickable { SdbSettings.applyDarkMode(!dark) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (dark) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                contentDescription = t("Cambiar tema", "Toggle theme"),
+                                tint = if (dark) SdbBlue else Color(0xFFFFB300),
+                                modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = rot }
+                            )
+                        }
                     }
+
+
+
+
                 }
 
                 HorizontalDivider(color = SdbBorder)
@@ -1415,20 +1608,20 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                         icon = {
                             Icon(
                                 imageVector = section.icon,
-                                contentDescription = section.title,
+                                contentDescription = tr(section.title),
                                 tint = if (isSelected) SdbBlue else SdbTextMuted
                             )
                         },
                         label = {
                             Column {
                                 Text(
-                                    text = section.title,
+                                    text = tr(section.title),
                                     fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = if (isSelected) Color.White else SdbTextMain
                                 )
                                 Text(
-                                    text = section.subtitle,
+                                    text = tr(section.subtitle),
                                     fontSize = 10.sp,
                                     color = SdbTextMuted
                                 )
@@ -1488,7 +1681,7 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                                     onClick = { scope.launch { drawerState.open() } },
                                     modifier = Modifier.size(36.dp)
                                 ) {
-                                    Icon(Icons.Default.Menu, contentDescription = "Abrir Menú", tint = SdbBlue)
+                                    Icon(Icons.Default.Menu, contentDescription = tr("Abrir Menú"), tint = SdbBlue)
                                 }
                             }
 
@@ -1533,7 +1726,7 @@ fun SteamDbRootApp(vm: SdbMainViewModel = viewModel()) {
                                     Box(modifier = Modifier.weight(1f)) {
                                         if (vm.topSearchText.isEmpty()) {
                                             Text(
-                                                text = "Buscar en SteamDB...",
+                                                text = tr("Buscar en SteamDB..."),
                                                 color = SdbTextMuted,
                                                 fontSize = 13.sp,
                                                 maxLines = 1
@@ -1655,7 +1848,7 @@ fun SteamDbHomePortalScreen(
     }
 
     if (vm.isLoading) {
-        LoadingStateBox("Cargando portada de SteamDB...")
+        LoadingStateBox(tr("Cargando portada de SteamDB..."))
         return
     }
 
@@ -1698,7 +1891,7 @@ fun SteamDbHomePortalScreen(
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                text = "Base de datos en tiempo real de precios, jugadores y paquetes de Steam.",
+                                text = tr("Base de datos en tiempo real de precios, jugadores y paquetes de Steam."),
                                 fontSize = 12.sp,
                                 color = SdbTextMain
                             )
@@ -1709,7 +1902,7 @@ fun SteamDbHomePortalScreen(
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                             modifier = Modifier.height(32.dp)
                         ) {
-                            Text("🪙 Oráculo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0A0E14))
+                            Text(tr("🪙 Oráculo"), fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0A0E14))
                         }
                     }
 
@@ -1728,7 +1921,7 @@ fun SteamDbHomePortalScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "⏳ TIEMPO RESTANTE PARA PRÓXIMO EVENTO",
+                                text = tr("⏳ TIEMPO RESTANTE PARA PRÓXIMO EVENTO"),
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = SdbSaleBadgeText,
@@ -1775,17 +1968,17 @@ fun SteamDbHomePortalScreen(
                         )
                         AssistChip(
                             onClick = { onNavigate(MainNavSection.ORACLE) },
-                            label = { Text("Oráculo de Gaben", fontSize = 11.sp) },
+                            label = { Text(tr("Oráculo de Gaben"), fontSize = 11.sp) },
                             leadingIcon = { Icon(Icons.Default.Casino, contentDescription = null, modifier = Modifier.size(15.dp), tint = SdbBlue) }
                         )
                         AssistChip(
                             onClick = { onNavigate(MainNavSection.FAVORITES) },
-                            label = { Text("⭐ Favoritos (${vm.favorites.size})", fontSize = 11.sp) },
+                            label = { Text(t("⭐ Favoritos", "⭐ Favorites") + " (${vm.favorites.size})", fontSize = 11.sp) },
                             leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(15.dp), tint = SdbSaleBadgeText) }
                         )
                         AssistChip(
                             onClick = { onNavigate(MainNavSection.CALC as MainNavSection) },
-                            label = { Text("Calculadora", fontSize = 11.sp) },
+                            label = { Text(tr("Calculadora"), fontSize = 11.sp) },
                             leadingIcon = { Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(15.dp), tint = SdbOrange) }
                         )
                     }
@@ -1808,14 +2001,14 @@ fun SteamDbHomePortalScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "🚀 NUEVA VERSIÓN ${vm.latestVersion} DISPONIBLE",
+                                t("🚀 NUEVA VERSIÓN ${vm.latestVersion} DISPONIBLE", "🚀 NEW VERSION ${vm.latestVersion} AVAILABLE"),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = SdbSaleBadgeText,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                "Tienes la ${UpdateChecker.CURRENT_VERSION}. Descarga la APK nueva desde GitHub Releases.",
+                                t("Tienes la ${UpdateChecker.CURRENT_VERSION}. Descarga la APK nueva desde GitHub Releases.", "You have ${UpdateChecker.CURRENT_VERSION}. Download the new APK from GitHub Releases."),
                                 fontSize = 11.sp,
                                 color = SdbTextMain
                             )
@@ -1830,7 +2023,7 @@ fun SteamDbHomePortalScreen(
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.height(36.dp)
                         ) {
-                            Text("Descargar", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0A0E14))
+                            Text(tr("Descargar"), fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0A0E14))
                         }
                     }
                 }
@@ -1840,7 +2033,7 @@ fun SteamDbHomePortalScreen(
         item {
             HomePortalTableBlock(
                 title = "MOST PLAYED GAMES",
-                actionLabel = "Ver Top 100 →",
+                actionLabel = tr("Ver Top 100 →"),
                 accentColor = SdbBrightGreen,
                 rightHeader = "PLAYERS NOW",
                 games = vm.mostPlayedGames.take(8),
@@ -1853,9 +2046,9 @@ fun SteamDbHomePortalScreen(
         item {
             HomePortalTableBlock(
                 title = "POPULAR & TRENDING RELEASES",
-                actionLabel = "Ver Ranking →",
+                actionLabel = tr("Ver Ranking →"),
                 accentColor = SdbBlue,
-                rightHeader = "PRECIO / DTO",
+                rightHeader = tr("PRECIO / DTO"),
                 games = vm.topWantedGames.take(8),
                 onActionClick = { onNavigate(MainNavSection.CHARTS) },
                 onGameClick = { vm.openAppInspector(it) },
@@ -1868,7 +2061,7 @@ fun SteamDbHomePortalScreen(
         item {
             HomePortalTableBlock(
                 title = "HOT SALES & BIGGEST DISCOUNTS",
-                actionLabel = "Ver Ofertas →",
+                actionLabel = tr("Ver Ofertas →"),
                 accentColor = SdbSaleBadgeText,
                 rightHeader = "OFERTA ES",
                 games = vm.activeSalesGames.take(8),
@@ -1990,7 +2183,7 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
     val numFmt = remember { NumberFormat.getIntegerInstance(Locale("es", "ES")) }
 
     if (vm.isLoading) {
-        LoadingStateBox("Sincronizando el Top 100 de jugadores simultáneos de Steam...")
+        LoadingStateBox(tr("Sincronizando el Top 100 de jugadores simultáneos de Steam..."))
         return
     }
 
@@ -2017,7 +2210,7 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
                     ) {
                         Column {
                             Text("STEAM CHARTS • TOP ${vm.mostPlayedGames.size} LIVE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
-                            Text("${numFmt.format(totalInChart)} jugadores en el Top", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = SdbBrightGreen)
+                            Text("${numFmt.format(totalInChart)} " + t("jugadores en el Top", "players in the Top"), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = SdbBrightGreen)
                         }
                         Badge(containerColor = SdbBrightGreen.copy(alpha = 0.2f)) {
                             Text("⚡ TOP 100 API", color = SdbBrightGreen, fontWeight = FontWeight.Bold, fontSize = 10.sp)
@@ -2043,7 +2236,7 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
                     .border(1.dp, SdbBorder, RoundedCornerShape(6.dp))
                     .padding(3.dp)
             ) {
-                val titles = listOf("Más Jugados (Top 100)", "Más Deseados / Populares")
+                val titles = listOf(tr("Más Jugados (Top 100)"), tr("Más Deseados / Populares"))
                 titles.forEachIndexed { idx, label ->
                     val active = subTab == idx
                     Box(
@@ -2073,8 +2266,8 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Mostrar:", fontSize = 11.sp, color = SdbTextMuted, fontFamily = FontFamily.Monospace)
-                    listOf(25 to "Top 25", 50 to "Top 50", 100 to "Ver Top 100").forEach { (limit, label) ->
+                    Text(tr("Mostrar:"), fontSize = 11.sp, color = SdbTextMuted, fontFamily = FontFamily.Monospace)
+                    listOf(25 to "Top 25", 50 to "Top 50", 100 to tr("Ver Top 100")).forEach { (limit, label) ->
                         FilterChip(
                             selected = displayLimit == limit,
                             onClick = { displayLimit = limit },
@@ -2095,13 +2288,13 @@ fun SteamDbChartsTab(vm: SdbMainViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("#", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.width(28.dp))
-                Text("JUEGO / APPID", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(1f))
+                Text(tr("JUEGO / APPID"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(1f))
                 if (subTab == 0) {
-                    Text("ACTUAL", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, modifier = Modifier.width(72.dp))
-                    Text("PICO 24H", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBlue, modifier = Modifier.width(72.dp))
+                    Text(tr("ACTUAL"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, modifier = Modifier.width(72.dp))
+                    Text(tr("PICO 24H"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBlue, modifier = Modifier.width(72.dp))
                 } else {
-                    Text("JUGANDO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, modifier = Modifier.width(68.dp))
-                    Text("PRECIO ES", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, modifier = Modifier.width(74.dp))
+                    Text(tr("JUGANDO"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, modifier = Modifier.width(68.dp))
+                    Text(tr("PRECIO ES"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, modifier = Modifier.width(74.dp))
                 }
             }
         }
@@ -2246,7 +2439,7 @@ fun SteamDbNextSalesTab() {
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "CUENTA ATRÁS PARA PRÓXIMA REBAJA DE STEAM",
+                            text = tr("CUENTA ATRÁS PARA PRÓXIMA REBAJA DE STEAM"),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = SdbBlue,
@@ -2263,7 +2456,7 @@ fun SteamDbNextSalesTab() {
                         color = SdbInk
                     )
                     Text(
-                        text = "${activeOrNext.category} • ${activeOrNext.dateRangeText}",
+                        text = "${tr(activeOrNext.category)} • ${activeOrNext.dateRangeText}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = SdbSaleBadgeText,
@@ -2276,7 +2469,7 @@ fun SteamDbNextSalesTab() {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        CountdownBox(days.toString(), "DÍAS", false)
+                        CountdownBox(days.toString(), tr("DÍAS"), false)
                         CountdownBox(String.format("%02d", hours), "HORAS", false)
                         CountdownBox(String.format("%02d", mins), "MINUTOS", false)
                         CountdownBox(String.format("%02d", secs), "SEGUNDOS", pulseOn)
@@ -2308,14 +2501,14 @@ fun SteamDbNextSalesTab() {
                     ) {
                         Badge(containerColor = if (isMajor) SdbSaleBadgeBg else SdbPanel) {
                             Text(
-                                text = ev.category,
+                                text = tr(ev.category),
                                 color = if (isMajor) SdbSaleBadgeText else SdbBlue,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp
                             )
                         }
                         Text(
-                            text = if (evDaysLeft > 0) "Faltan $evDaysLeft días" else ev.dateRangeText,
+                            text = if (evDaysLeft > 0) t("Faltan $evDaysLeft días", "$evDaysLeft days left") else ev.dateRangeText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = SdbBrightGreen,
@@ -2323,10 +2516,10 @@ fun SteamDbNextSalesTab() {
                         )
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text(ev.name, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = SdbInk)
+                    Text(tr(ev.name), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = SdbInk)
                     Text(ev.dateRangeText, fontSize = 11.sp, color = SdbBlue, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(4.dp))
-                    Text(ev.description, fontSize = 12.sp, color = SdbTextMuted)
+                    Text(tr(ev.description), fontSize = 12.sp, color = SdbTextMuted)
                 }
             }
         }
@@ -2383,7 +2576,7 @@ fun LiveAutocompleteDropdownOverlay(
         ) {
             if (suggestions.isEmpty() && isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text("Buscando coincidencias para \"$query\"...", color = SdbTextMuted, fontSize = 13.sp)
+                    Text(t("Buscando coincidencias para \"$query\"...", "Searching matches for \"$query\"..."), color = SdbTextMuted, fontSize = 13.sp)
                 }
             } else if (suggestions.isEmpty()) {
                 val directAppId = query.toIntOrNull()
@@ -2403,7 +2596,7 @@ fun LiveAutocompleteDropdownOverlay(
                             Text("Abrir directamente AppID $directAppId", color = SdbBlue, fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        Text("Sin sugerencias para \"$query\"", color = SdbTextMuted, fontSize = 13.sp)
+                        Text(t("Sin sugerencias para \"$query\"", "No suggestions for \"$query\""), color = SdbTextMuted, fontSize = 13.sp)
                     }
                 }
             } else {
@@ -2534,31 +2727,31 @@ fun sdbBuildCalendarDays(games: List<SdbGameSummary>): List<SdbCalendarDay> {
         .toSortedMap()
         .map { (d, list) ->
             val rel = when (d) {
-                today -> " · HOY"
-                today.plusDays(1) -> " · MAÑANA"
+                today -> tr(" · HOY")
+                today.plusDays(1) -> tr(" · MAÑANA")
                 else -> ""
             }
             SdbCalendarDay(
                 key = d.toString(),
                 date = d,
-                label = "${SDB_WEEKDAYS_LONG[d.dayOfWeek.value - 1]} ${d.dayOfMonth} de ${SDB_MONTH_SHORT[d.monthValue - 1].lowercase().replaceFirstChar { it.uppercase() }}$rel",
+                label = if (SdbSettings.english) "${tr(SDB_WEEKDAYS_LONG[d.dayOfWeek.value - 1])}, ${sdbMonth(d.monthValue).lowercase().replaceFirstChar { it.uppercase() }} ${d.dayOfMonth}$rel" else "${SDB_WEEKDAYS_LONG[d.dayOfWeek.value - 1]} ${d.dayOfMonth} de ${SDB_MONTH_SHORT[d.monthValue - 1].lowercase().replaceFirstChar { it.uppercase() }}$rel",
                 games = list
             )
         }
     val datedIds = dated.flatMap { it.games }.map { it.appId }.toSet()
     val undated = games.filter { it.appId !in datedIds && sdbParseReleaseDate(it.releaseDateText) == null }
-    return if (undated.isEmpty()) dated else dated + SdbCalendarDay("tbd", null, "Sin fecha concreta", undated)
+    return if (undated.isEmpty()) dated else dated + SdbCalendarDay("tbd", null, tr("Sin fecha concreta"), undated)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SteamDbCalendarTab(vm: SdbMainViewModel) {
     if (vm.isLoading) {
-        LoadingStateBox("Descargando pósters oficiales y fechas del calendario de Steam...")
+        LoadingStateBox(tr("Descargando pósters oficiales y fechas del calendario de Steam..."))
         return
     }
 
-    val days = remember(vm.upcomingCalendarGames) { sdbBuildCalendarDays(vm.upcomingCalendarGames) }
+    val days = remember(vm.upcomingCalendarGames, SdbSettings.english) { sdbBuildCalendarDays(vm.upcomingCalendarGames) }
     val listState = rememberLazyListState()
     val stripState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -2584,7 +2777,7 @@ fun SteamDbCalendarTab(vm: SdbMainViewModel) {
                 Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = SdbBlue, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    text = "CALENDARIO DE LANZAMIENTOS",
+                    text = tr("CALENDARIO DE LANZAMIENTOS"),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Black,
                     color = SdbInk,
@@ -2600,7 +2793,7 @@ fun SteamDbCalendarTab(vm: SdbMainViewModel) {
                 )
             }
             Text(
-                text = "Desliza los días o toca un juego para ver su ficha",
+                text = tr("Desliza los días o toca un juego para ver su ficha"),
                 fontSize = 11.sp,
                 color = SdbTextMuted
             )
@@ -2608,7 +2801,7 @@ fun SteamDbCalendarTab(vm: SdbMainViewModel) {
 
         if (days.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No hay lanzamientos próximos ahora mismo", color = SdbTextMuted, fontSize = 13.sp)
+                Text(tr("No hay lanzamientos próximos ahora mismo"), color = SdbTextMuted, fontSize = 13.sp)
             }
             return@Column
         }
@@ -2634,7 +2827,7 @@ fun SteamDbCalendarTab(vm: SdbMainViewModel) {
                 ) {
                     val fg = if (selected) Color(0xFF0A0E14) else Color.White
                     Text(
-                        text = d.date?.let { SDB_WEEKDAYS[it.dayOfWeek.value - 1] } ?: "TBD",
+                        text = d.date?.let { tr(SDB_WEEKDAYS[it.dayOfWeek.value - 1]) } ?: "TBD",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
@@ -2647,7 +2840,7 @@ fun SteamDbCalendarTab(vm: SdbMainViewModel) {
                         color = fg
                     )
                     Text(
-                        text = d.date?.let { SDB_MONTH_SHORT[it.monthValue - 1] } ?: "—",
+                        text = d.date?.let { sdbMonth(it.monthValue) } ?: "—",
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
                         color = if (selected) fg else SdbTextMuted
@@ -2770,7 +2963,7 @@ fun SdbCalendarRow(vm: SdbMainViewModel, game: SdbGameSummary) {
                     Spacer(Modifier.width(6.dp))
                 }
                 Text(
-                    text = if (sdbParseReleaseDate(game.releaseDateText) == null) game.releaseDateText.ifBlank { "Próximamente" } else "Estreno en Steam",
+                    text = if (sdbParseReleaseDate(game.releaseDateText) == null) tr(game.releaseDateText.ifBlank { "Próximamente" }) else tr("Estreno en Steam"),
                     fontSize = 10.sp,
                     color = SdbBrightGreen,
                     fontWeight = FontWeight.SemiBold,
@@ -2841,7 +3034,7 @@ fun LivePlayersBarChartCanvas(games: List<SdbGameSummary>, maxPlayers: Int) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Top 10 en vivo • Usa los botones inferiores para desplegar hasta el Top 100",
+            text = tr("Top 10 en vivo • Usa los botones inferiores para desplegar hasta el Top 100"),
             fontSize = 10.sp,
             color = SdbTextMuted
         )
@@ -2860,7 +3053,7 @@ fun SteamDbSalesTab(vm: SdbMainViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-        Text("STEAMDB SALES EXPLORER (TIENDA ESPAÑA - EUR)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
+        Text(tr("STEAMDB SALES EXPLORER (TIENDA ESPAÑA - EUR)"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
         Spacer(Modifier.height(6.dp))
 
         Row(
@@ -2875,22 +3068,22 @@ fun SteamDbSalesTab(vm: SdbMainViewModel) {
             FilterChip(
                 selected = minDiscount == 50,
                 onClick = { minDiscount = if (minDiscount == 50) 0 else 50 },
-                label = { Text("-50% o más", fontSize = 11.sp) }
+                label = { Text(tr("-50% o más"), fontSize = 11.sp) }
             )
             FilterChip(
                 selected = minDiscount == 75,
                 onClick = { minDiscount = if (minDiscount == 75) 0 else 75 },
-                label = { Text("-75% o más", fontSize = 11.sp) }
+                label = { Text(tr("-75% o más"), fontSize = 11.sp) }
             )
             FilterChip(
                 selected = maxEuros == 10,
                 onClick = { maxEuros = if (maxEuros == 10) 999 else 10 },
-                label = { Text("Menos de 10 €", fontSize = 11.sp) }
+                label = { Text(tr("Menos de 10 €"), fontSize = 11.sp) }
             )
             FilterChip(
                 selected = maxEuros == 5,
                 onClick = { maxEuros = if (maxEuros == 5) 999 else 5 },
-                label = { Text("Menos de 5 €", fontSize = 11.sp) }
+                label = { Text(tr("Menos de 5 €"), fontSize = 11.sp) }
             )
         }
 
@@ -2994,16 +3187,16 @@ suspend fun fetchTf2KeyPrice(currency: Int): TfKeyPrice = withContext(Dispatcher
         if (body.isNotBlank()) break
         delay(900L * (attempt + 1))
     }
-    if (body.isBlank()) return@withContext TfKeyPrice(null, null, null, "No se pudo contactar con el mercado de Steam (puede estar limitando peticiones). Escribe el precio a mano.")
+    if (body.isBlank()) return@withContext TfKeyPrice(null, null, null, tr("No se pudo contactar con el mercado de Steam (puede estar limitando peticiones). Escribe el precio a mano."))
     try {
         val j = JSONObject(body)
         val low = sdbParseMoney(j.optString("lowest_price", ""))
         val med = sdbParseMoney(j.optString("median_price", ""))
         if (!j.optBoolean("success") || (low == null && med == null))
-            TfKeyPrice(null, null, null, "Sin datos de mercado para esta divisa. Escribe el precio a mano.")
+            TfKeyPrice(null, null, null, tr("Sin datos de mercado para esta divisa. Escribe el precio a mano."))
         else TfKeyPrice(low, med, j.optString("volume", "").ifBlank { null }, null)
     } catch (_: Throwable) {
-        TfKeyPrice(null, null, null, "Respuesta no válida del mercado.")
+        TfKeyPrice(null, null, null, tr("Respuesta no válida del mercado."))
     }
 }
 
@@ -3057,12 +3250,12 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("KEY COMMANDER • LLAVES TF2", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                        Text(tr("KEY COMMANDER • LLAVES TF2"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbSaleBadgeText, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                         TextButton(onClick = { refreshTick++ }, enabled = !loading) {
-                            Text(if (loading) "···" else "ACTUALIZAR", fontSize = 10.sp, color = SdbBlue, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            Text(if (loading) "···" else tr("ACTUALIZAR"), fontSize = 10.sp, color = SdbBlue, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         }
                     }
-                    Text("¿Cuántas llaves de Mann Co. necesitas para comprar un juego? Precio real del Mercado de Steam en ${STEAM_MARKET_CURRENCIES.size} divisas.", fontSize = 11.sp, color = SdbTextMuted)
+                    Text(t("¿Cuántas llaves de Mann Co. necesitas para comprar un juego? Precio real del Mercado de Steam en ${STEAM_MARKET_CURRENCIES.size} divisas.", "How many Mann Co. keys do you need to buy a game? Real Steam Market price in ${STEAM_MARKET_CURRENCIES.size} currencies."), fontSize = 11.sp, color = SdbTextMuted)
                 }
             }
         }
@@ -3070,7 +3263,7 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
         // Selector de divisa
         item {
             Column {
-                Text("DIVISA", fontSize = 9.sp, color = SdbTextMuted, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text(tr("DIVISA"), fontSize = 9.sp, color = SdbTextMuted, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 Spacer(Modifier.height(4.dp))
                 Box {
                     Row(
@@ -3081,13 +3274,13 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
                             .padding(horizontal = 12.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("${currency.iso} · ${currency.name} (${currency.symbol})", fontSize = 13.sp, color = SdbInk, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                        Text("${currency.iso} · ${tr(currency.name)} (${currency.symbol})", fontSize = 13.sp, color = SdbInk, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                         Text("▼", fontSize = 10.sp, color = SdbTextMuted)
                     }
                     DropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }, modifier = Modifier.heightIn(max = 420.dp).background(SdbPanel)) {
                         STEAM_MARKET_CURRENCIES.forEach { c ->
                             DropdownMenuItem(
-                                text = { Text("${c.iso} · ${c.name} (${c.symbol})", fontSize = 13.sp, color = if (c == currency) SdbBrightGreen else SdbTextMain) },
+                                text = { Text("${c.iso} · ${tr(c.name)} (${c.symbol})", fontSize = 13.sp, color = if (c == currency) SdbBrightGreen else SdbTextMain) },
                                 onClick = { currency = c; pickerOpen = false }
                             )
                         }
@@ -3102,7 +3295,7 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
                 modifier = Modifier.fillMaxWidth().background(SdbPanel, RoundedCornerShape(6.dp)).border(1.dp, SdbBorder, RoundedCornerShape(6.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("COMISIÓN MERCADO (5% STEAM + 10% TF2)", fontSize = 9.sp, color = SdbTextMuted, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                Text(tr("COMISIÓN MERCADO (5% STEAM + 10% TF2)"), fontSize = 9.sp, color = SdbTextMuted, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                 Text("15,00%", fontSize = 13.sp, color = SdbOrange, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
         }
@@ -3112,7 +3305,7 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
             OutlinedTextField(
                 value = gamePriceText,
                 onValueChange = { gamePriceText = it },
-                label = { Text("Precio del juego (${currency.iso})") },
+                label = { Text(t("Precio del juego", "Game price") + " (${currency.iso})") },
                 suffix = { Text(currency.symbol, color = SdbTextMuted) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
@@ -3128,8 +3321,8 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
                 OutlinedTextField(
                     value = manualKeyText,
                     onValueChange = { manualKeyText = it },
-                    label = { Text("Precio de la llave (${currency.iso})") },
-                    placeholder = { Text(marketPrice?.let { fmt.format(it) } ?: if (loading) "Cargando…" else "Escribe el precio", color = SdbTextMuted) },
+                    label = { Text(t("Precio de la llave", "Key price") + " (${currency.iso})") },
+                    placeholder = { Text(marketPrice?.let { fmt.format(it) } ?: if (loading) tr("Cargando…") else tr("Escribe el precio"), color = SdbTextMuted) },
                     suffix = { Text(currency.symbol, color = SdbTextMuted) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
@@ -3139,10 +3332,10 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
                 )
                 Spacer(Modifier.height(4.dp))
                 val hint = when {
-                    loading -> "Consultando el Mercado de Steam…"
-                    manual > 0 -> "Usando tu precio manual."
-                    marketPrice != null -> "Precio más bajo del mercado (${updatedAt})" + (market?.volume?.let { " · $it vendidas en 24h" } ?: "") + ". Puedes sobrescribirlo."
-                    else -> market?.error ?: "Sin precio del mercado: escribe uno."
+                    loading -> tr("Consultando el Mercado de Steam…")
+                    manual > 0 -> tr("Usando tu precio manual.")
+                    marketPrice != null -> t("Precio más bajo del mercado", "Lowest market price") + " (${updatedAt})" + (market?.volume?.let { " · $it " + t("vendidas en 24h", "sold in 24h") } ?: "") + t(". Puedes sobrescribirlo.", ". You can override it.")
+                    else -> market?.error ?: tr("Sin precio del mercado: escribe uno.")
                 }
                 Text(hint, fontSize = 10.sp, color = if (marketPrice == null && manual <= 0 && !loading) SdbOrange else SdbTextMuted, fontFamily = FontFamily.Monospace)
             }
@@ -3156,19 +3349,19 @@ fun SteamDbCalculatorTab(vm: SdbMainViewModel) {
                 modifier = Modifier.fillMaxWidth().border(1.dp, if (finalKeys != null) SdbBrightGreen.copy(alpha = 0.5f) else SdbBorder, RoundedCornerShape(8.dp))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("LLAVES NECESARIAS", fontSize = 10.sp, color = SdbTextMuted, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Text(tr("LLAVES NECESARIAS"), fontSize = 10.sp, color = SdbTextMuted, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     Text(finalKeys?.toString() ?: "—", fontSize = 44.sp, fontWeight = FontWeight.Black, color = SdbBrightGreen, fontFamily = FontFamily.Monospace)
                     if (finalKeys != null && keyPrice != null && netPerKey != null) {
                         Text("Compras ${finalKeys} llaves por ${fmt.format(finalKeys * keyPrice)} ${currency.symbol}", fontSize = 12.sp, color = SdbTextMain)
                         Spacer(Modifier.height(10.dp))
                         HorizontalDivider(color = SdbBorder)
                         Spacer(Modifier.height(10.dp))
-                        CalcLine("Recibes por cada llave vendida", "${fmt.format(netPerKey)} ${currency.symbol}", SdbBlue)
-                        CalcLine("Llaves exactas sin comisión", fmt.format(keysNoFee ?: 0.0), SdbTextMain)
-                        CalcLine("Llaves exactas con comisión", fmt.format(keysWithFee ?: 0.0), SdbTextMain)
-                        CalcLine("Te sobra en el monedero", "${fmt.format(leftover ?: 0.0)} ${currency.symbol}", SdbSaleBadgeText)
+                        CalcLine(tr("Recibes por cada llave vendida"), "${fmt.format(netPerKey)} ${currency.symbol}", SdbBlue)
+                        CalcLine(tr("Llaves exactas sin comisión"), fmt.format(keysNoFee ?: 0.0), SdbTextMain)
+                        CalcLine(tr("Llaves exactas con comisión"), fmt.format(keysWithFee ?: 0.0), SdbTextMain)
+                        CalcLine(tr("Te sobra en el monedero"), "${fmt.format(leftover ?: 0.0)} ${currency.symbol}", SdbSaleBadgeText)
                     } else {
-                        Text("Escribe el precio del juego y espera al precio de la llave.", fontSize = 11.sp, color = SdbTextMuted)
+                        Text(tr("Escribe el precio del juego y espera al precio de la llave."), fontSize = 11.sp, color = SdbTextMuted)
                     }
                 }
             }
@@ -3264,7 +3457,7 @@ fun SteamDbDenseGameRow(
             IconButton(onClick = onToggleFavorite, modifier = Modifier.size(28.dp)) {
                 Icon(
                     imageVector = Icons.Default.Star,
-                    contentDescription = "Añadir a favoritos",
+                    contentDescription = tr("Añadir a favoritos"),
                     tint = if (isFavorite) SdbSaleBadgeText else SdbTextMuted.copy(alpha = 0.5f),
                     modifier = Modifier.size(16.dp)
                 )
@@ -3283,14 +3476,14 @@ fun FullScreenAppInspector(
 
     Column(modifier = Modifier.fillMaxSize().background(SdbBg)) {
         if (vm.isInspectorLoading && vm.inspectorAppData == null) {
-            LoadingStateBox("Inspeccionando metadatos del paquete y consultando las 41 divisas oficiales de Steam...")
+            LoadingStateBox(tr("Inspeccionando metadatos del paquete y consultando las 41 divisas oficiales de Steam..."))
             return@Column
         }
 
         val app = vm.inspectorAppData
         if (app == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Button(onClick = onBack) { Text("Error al leer el AppID. Volver") }
+                Button(onClick = onBack) { Text(tr("Error al leer el AppID. Volver")) }
             }
             return@Column
         }
@@ -3320,7 +3513,7 @@ fun FullScreenAppInspector(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     StatCounterBox("IN-GAME", numFmt.format(app.currentPlayers), SdbBrightGreen)
                     StatCounterBox("24H PEAK", numFmt.format(app.peakTodayEstimate), SdbBlue)
-                    StatCounterBox("ESPAÑA", app.finalFormatted, SdbSaleBadgeText)
+                    StatCounterBox(tr("ESPAÑA"), app.finalFormatted, SdbSaleBadgeText)
                 }
             }
             IconButton(onClick = {
@@ -3337,7 +3530,7 @@ fun FullScreenAppInspector(
             }) {
                 Icon(
                     imageVector = Icons.Default.Star,
-                    contentDescription = "Favorito con vigilancia de precio",
+                    contentDescription = tr("Favorito con vigilancia de precio"),
                     tint = if (vm.isFavorite(app.appId)) SdbSaleBadgeText else SdbTextMuted
                 )
             }
@@ -3440,7 +3633,7 @@ fun SdbPriceHistoryCard(history: List<SdbPricePoint>) {
             if (history.size < 2) {
                 Text(
                     t(
-                        "Aún no hay suficientes datos. La app guarda el precio cada vez que consultas este juego o se actualizan tus favoritos, y aquí verás su evolución y su mínimo histórico.",
+                        tr("Aún no hay suficientes datos. La app guarda el precio cada vez que consultas este juego o se actualizan tus favoritos, y aquí verás su evolución y su mínimo histórico."),
                         "Not enough data yet. The app saves the price every time you open this game or your favorites refresh, and its evolution and all-time low will show here."
                     ),
                     fontSize = 12.sp, color = SdbTextMuted, lineHeight = 17.sp
@@ -3518,12 +3711,12 @@ fun InspectorPricesTab(
     priceHistory: List<SdbPricePoint> = emptyList()
 ) {
     if (isLoadingPrices && prices.isEmpty()) {
-        LoadingStateBox("Consultando precios en tiempo real en las 41 divisas oficiales de Steam...")
+        LoadingStateBox(tr("Consultando precios en tiempo real en las 41 divisas oficiales de Steam..."))
         return
     }
 
     if (prices.isEmpty()) {
-        LoadingStateBox("Este paquete es gratuito o no dispone de tabla de precios comerciales.")
+        LoadingStateBox(tr("Este paquete es gratuito o no dispone de tabla de precios comerciales."))
         return
     }
 
@@ -3546,9 +3739,9 @@ fun InspectorPricesTab(
                     .border(1.dp, SdbBorder)
                     .padding(horizontal = 8.dp, vertical = 7.dp)
             ) {
-                Text("DIVISA OFICIAL STEAM (41 REGIONES)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(1.45f))
-                Text("PRECIO LOCAL", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(0.95f))
-                Text("EN EUROS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBlue, modifier = Modifier.weight(0.75f))
+                Text(tr("DIVISA OFICIAL STEAM (41 REGIONES)"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(1.45f))
+                Text(tr("PRECIO LOCAL"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbTextMuted, modifier = Modifier.weight(0.95f))
+                Text(tr("EN EUROS"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBlue, modifier = Modifier.weight(0.75f))
                 Text("VS EUR", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SdbBrightGreen, modifier = Modifier.width(62.dp))
             }
         }
@@ -3667,7 +3860,7 @@ fun InspectorChartsTab(app: SdbFullAppData, playerHistory: List<SdbPlayerMonth> 
                 if (playerHistory.isEmpty()) {
                     Text(
                         t(
-                            "No hay historial mensual disponible para este juego (juegos muy nuevos o con pocos datos).",
+                            tr("No hay historial mensual disponible para este juego (juegos muy nuevos o con pocos datos)."),
                             "No monthly history available for this game (very new or low-data titles)."
                         ),
                         fontSize = 12.sp, color = SdbTextMuted, lineHeight = 17.sp
@@ -3731,7 +3924,7 @@ fun InspectorChartsTab(app: SdbFullAppData, playerHistory: List<SdbPlayerMonth> 
             modifier = Modifier.fillMaxWidth().border(1.dp, SdbBorder, RoundedCornerShape(8.dp))
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text("STEAM REVIEWS BREAKDOWN • VALORACIONES", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
+                Text(tr("STEAM REVIEWS BREAKDOWN • VALORACIONES"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SdbBlue, fontFamily = FontFamily.Monospace)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = "${app.reviewScoreDesc} (${String.format(Locale("es", "ES"), "%.1f%%", positiveRatio)} positivas)",
@@ -3980,7 +4173,7 @@ fun InspectorDlcsAndPackagesTab(app: SdbFullAppData, onOpenDlc: (Int) -> Unit) {
                     Text("DLC AppID $dlcId", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = SdbInk, fontFamily = FontFamily.Monospace)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ver 41 divisas", fontSize = 11.sp, color = SdbBrightGreen)
+                    Text(tr("Ver 41 divisas"), fontSize = 11.sp, color = SdbBrightGreen)
                     Icon(Icons.Default.ChevronRight, contentDescription = null, tint = SdbBrightGreen)
                 }
             }
@@ -4161,7 +4354,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "EL ORÁCULO DE GABEN",
+                            text = tr("EL ORÁCULO DE GABEN"),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = SdbBlue,
@@ -4182,7 +4375,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "¿Dudas si comprarte ese juego o ahorrar? Escribe el título, lanza la moneda sagrada y deja que el destino decida por tu cartera.",
+                        text = tr("¿Dudas si comprarte ese juego o ahorrar? Escribe el título, lanza la moneda sagrada y deja que el destino decida por tu cartera."),
                         fontSize = 12.sp,
                         color = SdbTextMain
                     )
@@ -4203,8 +4396,8 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                     OutlinedTextField(
                         value = gameInput,
                         onValueChange = { gameInput = it },
-                        label = { Text("¿Qué juego te está tentando comprar?", fontSize = 12.sp) },
-                        placeholder = { Text("Ej: Elden Ring, Cyberpunk...", fontSize = 12.sp) },
+                        label = { Text(tr("¿Qué juego te está tentando comprar?"), fontSize = 12.sp) },
+                        placeholder = { Text(tr("Ej: Elden Ring, Cyberpunk..."), fontSize = 12.sp) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -4241,7 +4434,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                             )
                             .border(3.dp, coinColor, CircleShape)
                             .clickable(enabled = !isFlipping) {
-                                val targetName = gameInput.trim().ifEmpty { "Juego Misterioso de Steam" }
+                                val targetName = gameInput.trim().ifEmpty { tr("Juego Misterioso de Steam") }
                                 lastGameTested = targetName
                                 flipTrigger++
                             },
@@ -4262,14 +4455,14 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                                 Text("🪙", fontSize = 34.sp)
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "TOCA PARA",
+                                    text = tr("TOCA PARA"),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = SdbTextMuted,
                                     fontFamily = FontFamily.Monospace
                                 )
                                 Text(
-                                    text = "LANZAR",
+                                    text = tr("LANZAR"),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SdbBlue,
@@ -4279,14 +4472,14 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                                 Text("🛒", fontSize = 34.sp)
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "¡CARA!",
+                                    text = tr("¡CARA!"),
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SdbBrightGreen,
                                     fontFamily = FontFamily.Monospace
                                 )
                                 Text(
-                                    text = "¡A COMPRAR!",
+                                    text = tr("¡A COMPRAR!"),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = SdbInk
@@ -4295,14 +4488,14 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                                 Text("🛡️", fontSize = 34.sp)
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "¡CRUZ!",
+                                    text = tr("¡CRUZ!"),
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color(0xFFFF5252),
                                     fontFamily = FontFamily.Monospace
                                 )
                                 Text(
-                                    text = "¡AHORRA!",
+                                    text = tr("¡AHORRA!"),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = SdbInk
@@ -4316,7 +4509,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                     Button(
                         onClick = {
                             if (!isFlipping) {
-                                val targetName = gameInput.trim().ifEmpty { "Juego Misterioso de Steam" }
+                                val targetName = gameInput.trim().ifEmpty { tr("Juego Misterioso de Steam") }
                                 lastGameTested = targetName
                                 flipTrigger++
                             }
@@ -4326,7 +4519,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = if (isFlipping) "Consultando al destino..." else "🪙 ¡LANZAR MONEDA DEL DESTINO!",
+                            text = if (isFlipping) "Consultando al destino..." else tr("🪙 ¡LANZAR MONEDA DEL DESTINO!"),
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF0A0E14)
                         )
@@ -4345,8 +4538,8 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = if (lastResultHeads == true) "VEREDICTO PARA «$lastGameTested»: ¡SE COMPRA!"
-                                           else "VEREDICTO PARA «$lastGameTested»: ¡CARTERA A SALVO!",
+                                    text = if (lastResultHeads == true) t("VEREDICTO PARA «$lastGameTested»: ¡SE COMPRA!", "VERDICT FOR «$lastGameTested»: BUY IT!")
+                                           else t("VEREDICTO PARA «$lastGameTested»: ¡CARTERA A SALVO!", "VERDICT FOR «$lastGameTested»: WALLET SAFE!"),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = resColor,
@@ -4354,7 +4547,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = lastVerdictPhrase,
+                                    text = tr(lastVerdictPhrase),
                                     fontSize = 12.sp,
                                     color = SdbInk,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -4369,7 +4562,7 @@ fun SteamDbGabenOracleTab(vm: SdbMainViewModel) {
         if (history.isNotEmpty()) {
             item {
                 Text(
-                    text = "HISTORIAL DEL ORÁCULO (SIN TRAMPAS)",
+                    text = tr("HISTORIAL DEL ORÁCULO (SIN TRAMPAS)"),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = SdbTextMuted,
@@ -4528,7 +4721,7 @@ object FavoritesStore {
 // ==================== COMPROBADOR DE NUEVAS VERSIONES (GITHUB RELEASES) ====================
 
 object UpdateChecker {
-    const val CURRENT_VERSION = "1.1.1"
+    const val CURRENT_VERSION = "1.1.2"
     private const val RELEASES_API_URL = "https://api.github.com/repos/Androo45/SteamDB-Android/releases/latest"
     const val RELEASES_PAGE_URL = "https://github.com/Androo45/SteamDB-Android/releases/latest"
 
@@ -4578,7 +4771,7 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        "WATCHLIST DE FAVORITOS • SEGUIMIENTO DE PRECIOS",
+                        tr("WATCHLIST DE FAVORITOS • SEGUIMIENTO DE PRECIOS"),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = SdbBlue,
@@ -4586,16 +4779,16 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Cuando actualices la app (icono ⟳ arriba), SteamDB compara el precio actual de cada favorito con el último visto y te avisa aquí si ha bajado.",
+                        tr("Cuando actualices la app (icono ⟳ arriba), SteamDB compara el precio actual de cada favorito con el último visto y te avisa aquí si ha bajado."),
                         fontSize = 12.sp,
                         color = SdbTextMain
                     )
                     if (vm.favorites.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            StatCounterBox("FAVORITOS", numFmt.format(vm.favorites.size), SdbBlue)
+                            StatCounterBox(tr("FAVORITOS"), numFmt.format(vm.favorites.size), SdbBlue)
                             StatCounterBox("HAN BAJADO", numFmt.format(dropCount), SdbBrightGreen)
-                            StatCounterBox("EN OBJETIVO", numFmt.format(targetHits), SdbSaleBadgeText)
+                            StatCounterBox(tr("EN OBJETIVO"), numFmt.format(targetHits), SdbSaleBadgeText)
                         }
                     }
                 }
@@ -4612,10 +4805,10 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
                     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("⭐", fontSize = 34.sp)
                         Spacer(Modifier.height(8.dp))
-                        Text("Todavía no tienes favoritos", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = SdbInk)
+                        Text(tr("Todavía no tienes favoritos"), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = SdbInk)
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Abre cualquier juego (buscador, Charts u Ofertas) y toca la estrella ⭐ de su ficha para añadirlo a la vigilancia de precios.",
+                            tr("Abre cualquier juego (buscador, Charts u Ofertas) y toca la estrella ⭐ de su ficha para añadirlo a la vigilancia de precios."),
                             fontSize = 12.sp,
                             color = SdbTextMuted,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -4658,7 +4851,7 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = if (f.lastSeenCents > 0) String.format(Locale("es", "ES"), "%.2f €", f.lastSeenCents / 100.0) else "Sin precio",
+                            text = if (f.lastSeenCents > 0) String.format(Locale("es", "ES"), "%.2f €", f.lastSeenCents / 100.0) else tr("Sin precio"),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.ExtraBold,
                             fontFamily = FontFamily.Monospace,
@@ -4682,7 +4875,7 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
                                     .padding(horizontal = 7.dp, vertical = 3.dp)
                             ) {
                                 Text(
-                                    "▼ ¡BAJADA! -${String.format(Locale("es", "ES"), "%.2f €", f.droppedByCents / 100.0)}",
+                                    t("▼ ¡BAJADA! -", "▼ DROP! -") + "${String.format(Locale("es", "ES"), "%.2f €", f.droppedByCents / 100.0)}",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SdbBrightGreen,
@@ -4699,7 +4892,7 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
                                     .padding(horizontal = 7.dp, vertical = 3.dp)
                             ) {
                                 Text(
-                                    "🎯 ¡OBJETIVO CONSEGUIDO!",
+                                    tr("🎯 ¡OBJETIVO CONSEGUIDO!"),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SdbSaleBadgeText,
@@ -4735,12 +4928,12 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Precio objetivo", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Precio objetivo"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                     IconButton(onClick = {
                         vm.removeFavorite(f.appId)
                     }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Quitar de favoritos", tint = SdbRed, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.DeleteOutline, contentDescription = tr("Quitar de favoritos"), tint = SdbRed, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -4758,11 +4951,11 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
             containerColor = SdbPanel,
             titleContentColor = SdbInk,
             textContentColor = SdbTextMain,
-            title = { Text("Precio objetivo", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold) },
+            title = { Text(tr("Precio objetivo"), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold) },
             text = {
                 Column {
                     Text(
-                        "Escribe a partir de qué precio quieres «${fav.name}». SteamDB te lo marcará cuando baje de ahí.",
+                        t("Escribe a partir de qué precio quieres «${fav.name}». SteamDB te lo marcará cuando baje de ahí.", "Type the price you want «${fav.name}» at. SteamDB will flag it when it drops below."),
                         fontSize = 12.sp
                     )
                     Spacer(Modifier.height(10.dp))
@@ -4787,10 +4980,10 @@ fun SteamDbFavoritesTab(vm: SdbMainViewModel) {
                     val parsed = textValue.trim().replace(",", ".").toDoubleOrNull()
                     if (parsed != null) vm.setFavoriteTargetPrice(fav.appId, parsed)
                     editingTarget = null
-                }) { Text("Guardar", color = SdbBlue, fontWeight = FontWeight.Bold) }
+                }) { Text(tr("Guardar"), color = SdbBlue, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { editingTarget = null }) { Text("Cancelar", color = SdbTextMuted) }
+                TextButton(onClick = { editingTarget = null }) { Text(tr("Cancelar"), color = SdbTextMuted) }
             }
         )
     }

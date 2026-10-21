@@ -13,8 +13,8 @@ android {
     applicationId = "com.example.steamdb"
     minSdk = 26
     targetSdk = 34
-    versionCode = 12 // Subimos de 11 a 12
-    versionName = "1.1.1" // Actualizamos a v1.1.1
+    versionCode = 13
+    versionName = "1.1.2"
 }
 
     // Firma permanente: si existen las variables de entorno KEYSTORE_FILE /
